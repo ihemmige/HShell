@@ -31,6 +31,25 @@ void print_vector(vector<string>& vec) {
   cout << endl;
 }
 
+void change_directory(vector<string>& command) {
+  if (command.size() == 1 || command[1] == "~") {
+    const char* home_directory = getenv("HOME");
+    if (home_directory) {
+      if (chdir(home_directory) != 0) {
+        perror("hsh");
+      }
+    } else {
+      cerr << "Error: HOME environment variable not set." << std::endl;
+    }
+  } else if (command.size() > 1) {
+    if (chdir(command[1].c_str()) != 0) {
+      perror("hsh");
+    }
+  } else {
+      cerr << "Usage: cd <directory>" << std::endl;
+  }
+}
+
 void execute_command(vector<string>& command) {
     vector<char*> args;
     args.reserve(command.size() + 1); // +1 for the nullptr at the end
@@ -38,14 +57,12 @@ void execute_command(vector<string>& command) {
         args.push_back(const_cast<char*>(token.c_str()));
     }
     args.push_back(nullptr);
-
-    // Print the arguments
-    for (int i = 0; i < args.size() - 1; i++) {
-        cout << args[i] << " ";
+    if (command[0] == "cd") {
+      change_directory(command);
+      return;
     }
-    cout << endl;
-    pid_t pid = fork();
 
+    pid_t pid = fork();
     if (pid == -1) {
         perror("fork");
     } else if (pid == 0) {
@@ -65,7 +82,6 @@ int main() {
   while (1) {
     cout << "hsh> ";
     if (!getline(cin, buffer)) {
-
       // If user entered Ctrl+D
       if (cin.eof()) {
         cout << "Ctrl+D detected. Closing shell." << endl;
