@@ -46,8 +46,24 @@ void change_directory(vector<string>& command) {
       perror("hsh");
     }
   } else {
-      cerr << "Usage: cd <directory>" << std::endl;
+      cerr << "Usage: cd <directory>" << endl;
   }
+}
+
+int generate_child(vector<char*>& args) {
+    pid_t pid = fork();
+    if (pid == -1) {
+        perror("fork");
+    } else if (pid == 0) {
+        // Child process
+        execvp(args[0], args.data());
+        perror("hsh");
+        exit(EXIT_FAILURE);
+    } else {
+        // Parent process
+        wait(nullptr);
+    }
+    return 0;
 }
 
 void execute_command(vector<string>& command) {
@@ -61,19 +77,11 @@ void execute_command(vector<string>& command) {
       change_directory(command);
       return;
     }
-
-    pid_t pid = fork();
-    if (pid == -1) {
-        perror("fork");
-    } else if (pid == 0) {
-        // Child process
-        execvp(args[0], args.data());
-        perror("hsh");
-        exit(EXIT_FAILURE);
-    } else {
-        // Parent process
-        wait(nullptr);
+    if (command[0] == "exit") {
+      cout << "Exiting shell. Goodbye." << endl;
+      exit(EXIT_SUCCESS);
     }
+    generate_child(args);
 }
 
 int main() {
@@ -84,7 +92,7 @@ int main() {
     if (!getline(cin, buffer)) {
       // If user entered Ctrl+D
       if (cin.eof()) {
-        cout << "Ctrl+D detected. Closing shell." << endl;
+        cout << "Exiting shell. Goodbye." << endl;
       }
       // Handle other errors
       else {
