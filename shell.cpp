@@ -1,8 +1,7 @@
 #include "shell.h"
 
-// Signal handler function
 void signalHandler(int signum) {
-    cout << "Interrupt signal (" << signum << ") received.\n";
+    cout << "Signal (" << signum << ") received.\n";
     cout << "hsh> " << flush;
 }
 
@@ -59,7 +58,7 @@ int generate_child(vector<char*>& args) {
 }
 
 void populate_arg_vector(vector<char*>& args, vector<string>& command) {
-    args.reserve(command.size() + 1);
+    // args.reserve(command.size() + 1);
     for (const auto& token : command) {
         args.push_back(const_cast<char*>(token.c_str()));
     }

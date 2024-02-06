@@ -1,4 +1,5 @@
 #include "shell.h"
+#include <filesystem>
 
 using namespace std;
 
@@ -6,7 +7,8 @@ int main() {
   string buffer;
   signal(SIGINT, signalHandler);
   while (1) {
-    cout << "hsh> ";
+    string curDirectory = filesystem::current_path().filename().string();
+    cout << "HShell " << curDirectory << " > ";
     if (!getline(cin, buffer)) {
       // If user entered Ctrl+D
       if (cin.eof()) {
@@ -19,7 +21,6 @@ int main() {
       break;
     } else {
       vector<string> vals = parse_input(buffer);
-      // print_vector(vals);
       execute_command(vals);
     }
   }
