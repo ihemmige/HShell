@@ -42,9 +42,49 @@ void changeDirectory(vector<string>& command) {
 }
 
 int generateChild(vector<char*>& args) {
+    string inputFile;
+    string outputFile;
+
+    for (size_t i = 0; i < args.size()-1; ++i) {
+      if (!strcmp(args[i],"<") && i + 1 < args.size()) {
+          inputFile = args[i + 1];
+          i++;  // Skip the next token
+      } else if (!strcmp(args[i],">") && i + 1 < args.size()) {
+          outputFile = args[i + 1];
+          i++;  // Skip the next token
+      }
+    }
+
+    int originalStdin = dup(STDIN_FILENO);
+    int originalStdout = dup(STDOUT_FILENO);
+
+    // Set up file descriptors for input redirection
+    if (!inputFile.empty()) {
+      int fd = open(inputFile.c_str(), O_RDONLY);
+      if (fd == -1) {
+          perror("open");
+          return 1;
+      }
+      dup2(fd, STDIN_FILENO);
+      close(fd);
+    }
+
+    // Set up file descriptors for output redirection
+    if (!outputFile.empty()) {
+        int fd = open(outputFile.c_str(), O_WRONLY | O_CREAT | O_TRUNC, 0666);
+        if (fd == -1) {
+            perror("open");
+            return 1;
+        }
+        dup2(fd, STDOUT_FILENO);
+        close(fd);
+    }
+
     pid_t pid = fork();
     if (pid == -1) {
         perror("fork");
+        dup2(originalStdin, STDIN_FILENO);
+        dup2(originalStdout, STDOUT_FILENO);
     } else if (pid == 0) {
         // Child process
         execvp(args[0], args.data());
@@ -54,6 +94,8 @@ int generateChild(vector<char*>& args) {
         // Parent process
         wait(nullptr);
     }
+    dup2(originalStdin, STDIN_FILENO);
+    dup2(originalStdout, STDOUT_FILENO);
     return 0;
 }
 
