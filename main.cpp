@@ -20,8 +20,8 @@ int main() {
       }
       break;
     } else {
-      vector<string> vals = parse_input(buffer);
-      execute_command(vals);
+      vector<string> vals = parseInput(buffer);
+      executeCommand(vals);
     }
   }
 	return 0;

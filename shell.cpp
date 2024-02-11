@@ -5,7 +5,7 @@ void signalHandler(int signum) {
     cout << "hsh> " << flush;
 }
 
-vector<string> parse_input(string input) {
+vector<string> parseInput(string input) {
   vector<string> tokens;
   stringstream iss(input);
   string token;
@@ -15,14 +15,14 @@ vector<string> parse_input(string input) {
   return tokens;
 }
 
-void print_vector(vector<string>& vec) {
+void printVector(vector<string>& vec) {
   for (auto v : vec) {
     cout << v << " ";
   }
   cout << endl;
 }
 
-void change_directory(vector<string>& command) {
+void changeDirectory(vector<string>& command) {
   if (command.size() == 1 || command[1] == "~") {
     const char* home_directory = getenv("HOME");
     if (home_directory) {
@@ -41,7 +41,7 @@ void change_directory(vector<string>& command) {
   }
 }
 
-int generate_child(vector<char*>& args) {
+int generateChild(vector<char*>& args) {
     pid_t pid = fork();
     if (pid == -1) {
         perror("fork");
@@ -57,7 +57,7 @@ int generate_child(vector<char*>& args) {
     return 0;
 }
 
-void populate_arg_vector(vector<char*>& args, vector<string>& command) {
+void populateArgVector(vector<char*>& args, vector<string>& command) {
     // args.reserve(command.size() + 1);
     for (const auto& token : command) {
         args.push_back(const_cast<char*>(token.c_str()));
@@ -65,17 +65,27 @@ void populate_arg_vector(vector<char*>& args, vector<string>& command) {
     args.push_back(nullptr);
 }
 
-void execute_command(vector<string>& command) {
-    vector<char*> args;
-    populate_arg_vector(args, command);
-    
+int handleBuiltins(vector<string>& command) {
     if (command[0] == "cd") {
-      change_directory(command);
-      return;
+      changeDirectory(command);
+      return 0;
+    }
+    if (command[0] == "pwd") {
+      cout << filesystem::current_path().string() << endl;
+      return 0;
     }
     if (command[0] == "exit") {
       cout << "Exiting shell. Goodbye." << endl;
       exit(EXIT_SUCCESS);
     }
-    generate_child(args);
+    return 1;
+}
+
+void executeCommand(vector<string>& command) {
+    vector<char*> args;
+    populateArgVector(args, command);
+    if (command.empty()) return;
+    if (handleBuiltins(command)) {
+      generateChild(args);
+    }
 }

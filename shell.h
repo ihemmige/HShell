@@ -8,21 +8,28 @@
 #include <unistd.h>
 #include <vector>
 #include <sstream>
+#include <filesystem>
+
+
+#include <sys/wait.h>
+#include <sys/types.h>
+#include <sys/stat.h>
+#include <fcntl.h>
 
 using namespace std;
 
 void signalHandler(int signum);
 
-vector<string> parse_input(string input);
+vector<string> parseInput(string input);
 
-void print_vector(vector<string>& vec);
+void printVector(vector<string>& vec);
 
-void change_directory(vector<string>& command);
+void changeDirectory(vector<string>& command);
 
-int generate_child(vector<char*>& args);
+int generateChild(vector<char*>& args);
 
-void execute_command(vector<string>& command);
+void executeCommand(vector<string>& command);
 
-void populate_arg_vector(vector<char*>& args, vector<string>& command);
+void populateArgVector(vector<char*>& args, vector<string>& command);
 
 #endif
