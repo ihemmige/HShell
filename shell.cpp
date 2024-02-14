@@ -41,17 +41,28 @@ void changeDirectory(vector<string>& command) {
   }
 }
 
-int generateChild(vector<char*>& args) {
+void print_args(vector<char*>& args) {
+  for (int i = 0; i < args.size() - 1; i++) {
+    cout << args[i] << " ";
+  }
+  cout << endl;
+}
+
+int generateChild(vector<string>& command) {
     string inputFile;
     string outputFile;
-
-    for (size_t i = 0; i < args.size()-1; ++i) {
-      if (!strcmp(args[i],"<") && i + 1 < args.size()) {
-          inputFile = args[i + 1];
-          i++;  // Skip the next token
-      } else if (!strcmp(args[i],">") && i + 1 < args.size()) {
-          outputFile = args[i + 1];
-          i++;  // Skip the next token
+    // print_args(args);
+    for (size_t i = 0; i < command.size()-1; ++i) {
+      if (command[i] == "<" && i + 1 < command.size()) {
+          inputFile = command[i + 1];
+          command.erase(command.begin() + i, command.end());
+          break;
+          // i++;  // Skip the next token
+      } else if (command[i] == ">" && i + 1 < command.size()) {
+          outputFile = command[i + 1];
+          command.erase(command.begin() + i, command.end());
+          break;
+          // i++;  // Skip the next token
       }
     }
 
@@ -79,6 +90,9 @@ int generateChild(vector<char*>& args) {
         dup2(fd, STDOUT_FILENO);
         close(fd);
     }
+
+    vector<char*> args;
+    populateArgVector(args, command);
 
     pid_t pid = fork();
     if (pid == -1) {
@@ -124,10 +138,8 @@ int handleBuiltins(vector<string>& command) {
 }
 
 void executeCommand(vector<string>& command) {
-    vector<char*> args;
-    populateArgVector(args, command);
     if (command.empty()) return;
     if (handleBuiltins(command)) {
-      generateChild(args);
+      generateChild(command);
     }
 }

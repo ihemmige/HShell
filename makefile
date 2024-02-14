@@ -13,5 +13,5 @@ shell.o: shell.cpp shell.h
 	$(CC) $(CFLAGS) -c shell.cpp
 
 clean :
-	rm -f hsh depend.mak *.o
+	rm -f hsh depend.mak *.o *.txt
 	rm -r -f *.dSYM
