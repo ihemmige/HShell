@@ -42,7 +42,7 @@ void changeDirectory(vector<string>& command) {
 }
 
 void print_args(vector<char*>& args) {
-  for (int i = 0; i < args.size() - 1; i++) {
+  for (size_t i = 0; i < args.size() - 1; i++) {
     cout << args[i] << " ";
   }
   cout << endl;
@@ -51,18 +51,14 @@ void print_args(vector<char*>& args) {
 int generateChild(vector<string>& command) {
     string inputFile;
     string outputFile;
-    // print_args(args);
-    for (size_t i = 0; i < command.size()-1; ++i) {
-      if (command[i] == "<" && i + 1 < command.size()) {
-          inputFile = command[i + 1];
-          command.erase(command.begin() + i, command.end());
-          break;
-          // i++;  // Skip the next token
-      } else if (command[i] == ">" && i + 1 < command.size()) {
-          outputFile = command[i + 1];
-          command.erase(command.begin() + i, command.end());
-          break;
-          // i++;  // Skip the next token
+    size_t ptr = 0;
+    while (ptr < command.size()) {
+      if (command[ptr] == ">" && ptr + 1 < command.size()) {
+          outputFile = command[ptr + 1];
+          command.erase(command.begin() + ptr, command.begin() + ptr + 2);
+      }
+      else {
+        ptr++;
       }
     }
 
