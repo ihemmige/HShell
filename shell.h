@@ -25,10 +25,14 @@ void printVector(vector<string>& vec);
 
 void changeDirectory(vector<string>& command);
 
-int generateChild(vector<char*>& args);
+int handleRedirection(vector<string>& command);
+
+void generateChild(vector<string>& command, int originalStdin, int originalStdout);
 
 void executeCommand(vector<string>& command);
 
 void populateArgVector(vector<char*>& args, vector<string>& command);
+
+int handleBuiltins(vector<string>& command);
 
 #endif

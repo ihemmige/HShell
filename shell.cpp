@@ -41,14 +41,29 @@ void changeDirectory(vector<string>& command) {
   }
 }
 
-void print_args(vector<char*>& args) {
-  for (size_t i = 0; i < args.size() - 1; i++) {
-    cout << args[i] << " ";
+void generateChild(vector<string>& command, int originalStdin, int originalStdout) {
+  vector<char*> args;
+  populateArgVector(args, command);
+  pid_t pid = fork();
+  if (pid == -1) {
+      perror("fork");
+      dup2(originalStdin, STDIN_FILENO);
+      dup2(originalStdout, STDOUT_FILENO);
+  } else if (pid == 0) {
+      // Child process
+      execvp(args[0], args.data());
+      perror("hsh");
+      exit(EXIT_FAILURE);
+  } else {
+      // Parent process
+      wait(nullptr);
   }
-  cout << endl;
+    // restore standard input and output
+    dup2(originalStdin, STDIN_FILENO);
+    dup2(originalStdout, STDOUT_FILENO);
 }
 
-int generateChild(vector<string>& command) {
+int handleRedirection(vector<string>& command) {
     string inputFile;
     string outputFile;
     size_t ptr = 0;
@@ -65,17 +80,6 @@ int generateChild(vector<string>& command) {
     int originalStdin = dup(STDIN_FILENO);
     int originalStdout = dup(STDOUT_FILENO);
 
-    // Set up file descriptors for input redirection
-    if (!inputFile.empty()) {
-      int fd = open(inputFile.c_str(), O_RDONLY);
-      if (fd == -1) {
-          perror("open");
-          return 1;
-      }
-      dup2(fd, STDIN_FILENO);
-      close(fd);
-    }
-
     // Set up file descriptors for output redirection
     if (!outputFile.empty()) {
         int fd = open(outputFile.c_str(), O_WRONLY | O_CREAT | O_TRUNC, 0666);
@@ -87,25 +91,7 @@ int generateChild(vector<string>& command) {
         close(fd);
     }
 
-    vector<char*> args;
-    populateArgVector(args, command);
-
-    pid_t pid = fork();
-    if (pid == -1) {
-        perror("fork");
-        dup2(originalStdin, STDIN_FILENO);
-        dup2(originalStdout, STDOUT_FILENO);
-    } else if (pid == 0) {
-        // Child process
-        execvp(args[0], args.data());
-        perror("hsh");
-        exit(EXIT_FAILURE);
-    } else {
-        // Parent process
-        wait(nullptr);
-    }
-    dup2(originalStdin, STDIN_FILENO);
-    dup2(originalStdout, STDOUT_FILENO);
+    generateChild(command, originalStdin, originalStdout); // the command is run, and file descriptors reset if necessary
     return 0;
 }
 
@@ -136,6 +122,6 @@ int handleBuiltins(vector<string>& command) {
 void executeCommand(vector<string>& command) {
     if (command.empty()) return;
     if (handleBuiltins(command)) {
-      generateChild(command);
+      handleRedirection(command);
     }
 }
