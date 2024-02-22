@@ -19,6 +19,8 @@ using namespace std;
 
 void signalHandler(int signum);
 
+void outputPrompt();
+
 vector<string> parseInput(string input);
 
 void printVector(vector<string>& vec);

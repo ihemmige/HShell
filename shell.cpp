@@ -2,7 +2,7 @@
 
 void signalHandler(int signum) {
     cout << "Signal (" << signum << ") received.\n";
-    cout << "hsh> " << flush;
+    outputPrompt();
 }
 
 vector<string> parseInput(string input) {
@@ -124,4 +124,10 @@ void executeCommand(vector<string>& command) {
     if (handleBuiltins(command)) {
       handleRedirection(command);
     }
+}
+
+void outputPrompt() {
+  string curDirectory = filesystem::current_path().filename().string();
+  cout << "HShell " << curDirectory << " > ";
+  cout << flush;
 }
