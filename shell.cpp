@@ -1,7 +1,7 @@
 #include "shell.h"
 
 // Functions for interacting with user, processing user input
-void signalHandler(int signum) {
+void signalHandler(int /*signum*/) {
     cout << endl;
     outputPrompt();
 }
@@ -60,21 +60,23 @@ void shellLoop() {
   outputPrompt();
   deque<string> commandHistory;
   commandHistory.push_back("");
-  size_t historyIndex = commandHistory.size()-1;
+  int historyIndex = commandHistory.size() - 1;
   while (true) {
     ch = getch();
+    
     // handle Ctrl + D (EOF)
     if (ch == 4) {
       vector<string> temp = {"exit"};
       handleBuiltins(temp);
     }
     
-    if (ch == 27) { // Check for Escape key (arrow keys)
+    if (ch == 27) { // Check for Escape key (start of sequence for arrow keys)
       ch = getch(); // Read the next character to determine the specific arrow key
-      if (ch == '[') {
-        ch = getch(); // Read the actual arrow key
+      if (ch == '[') { // second character in arrow key sequence
+        ch = getch();
         if (ch == 'A') { // up arrow
-          if (historyIndex - 1 < commandHistory.size()) {
+          // if there is a previous command
+          if (historyIndex - 1 >= 0) {
             historyIndex -= 1;
             int curCommandSize = command.size();
             for (int i = 0; i < curCommandSize; i++) {
@@ -85,7 +87,7 @@ void shellLoop() {
           }
         }
         else if (ch == 'B') { // down arrow
-          if (historyIndex + 1 < commandHistory.size()) {
+          if (historyIndex + 1 < static_cast<int>(commandHistory.size())) {
             historyIndex += 1;
             int curCommandSize = command.size();
             for (int i = 0; i < curCommandSize; i++) {
