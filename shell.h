@@ -7,13 +7,14 @@
 #include <stdlib.h>
 #include <unistd.h>
 #include <vector>
+#include <deque> 
 #include <sstream>
 #include <filesystem>
-
 #include <sys/wait.h>
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <fcntl.h>
+#include <termios.h>
 
 using namespace std;
 
@@ -36,5 +37,13 @@ void executeCommand(vector<string>& command);
 void populateArgVector(vector<char*>& args, vector<string>& command);
 
 int handleBuiltins(vector<string>& command);
+
+char getch();
+
+void printDeque(deque<string>& d);
+
+void addToHistory(deque<string>& commandHistory, string newCommand);
+
+void printString(string s);
 
 #endif

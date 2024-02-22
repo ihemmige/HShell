@@ -1,38 +1,15 @@
 #include "shell.h"
-#include <termios.h>
-
 using namespace std;
-
-// Function to get a single character from the terminal without Enter key press
-char getch() {
-  char buf = 0;
-  struct termios old = {0};
-  fflush(stdout);
-  if (tcgetattr(0, &old) < 0)
-    perror("tcsetattr()");
-  old.c_lflag &= ~ICANON;
-  old.c_lflag &= ~ECHO;
-  old.c_cc[VMIN] = 1;
-  old.c_cc[VTIME] = 0;
-  if (tcsetattr(0, TCSANOW, &old) < 0)
-    perror("tcsetattr ICANON");
-  if (read(0, &buf, 1) < 0)
-    perror("read()");
-  old.c_lflag |= ICANON;
-  old.c_lflag |= ECHO;
-  if (tcsetattr(0, TCSADRAIN, &old) < 0)
-    perror("tcsetattr ~ICANON");
-  return buf;
-}
 
 void shellLoop() {
   string command;
   char ch;
   outputPrompt();
-
+  deque<string> commandHistory;
+  commandHistory.push_back("");
+  size_t historyIndex = commandHistory.size()-1;
   while (true) {
     ch = getch();
-
     // handle Ctrl + D (EOF)
     if (ch == 4) {
       vector<string> temp = {"exit"};
@@ -43,17 +20,31 @@ void shellLoop() {
       ch = getch(); // Read the next character to determine the specific arrow key
       if (ch == '[') {
         ch = getch(); // Read the actual arrow key
-        if (ch == 'A') {
-          // TODO implement command history
-          cout << "Up arrow key pressed" << endl;
-          outputPrompt();
-          continue; // Skip the character handling below
+        if (ch == 'A') { // up arrow
+          if (historyIndex - 1 < commandHistory.size()) {
+            historyIndex -= 1;
+            int curCommandSize = command.size();
+            for (int i = 0; i < curCommandSize; i++) {
+                cout << "\b \b";
+            }
+            command = commandHistory[historyIndex];
+            cout << command;
+          }
         }
-        else if (ch == 'B') {
-          // TODO implement command history
-          cout << "Down arrow key pressed" << endl;
-          outputPrompt();
-          continue; // Skip the character handling below
+        else if (ch == 'B') { // down arrow
+          if (historyIndex + 1 < commandHistory.size()) {
+            historyIndex += 1;
+            int curCommandSize = command.size();
+            for (int i = 0; i < curCommandSize; i++) {
+                cout << "\b \b";
+            }
+            command = commandHistory[historyIndex];
+            cout << command;
+          }
+        } else if (ch == 'C') {
+          //TODO handle right arrow
+        } else if (ch == 'D') {
+          //TODO handle left arrow
         }
       }
     }
@@ -61,9 +52,10 @@ void shellLoop() {
       cout << endl;
       vector<string> vals = parseInput(command);
       executeCommand(vals);
+      if (command.size()) addToHistory(commandHistory, command);
       command.clear();
+      historyIndex = commandHistory.size() - 1;
       outputPrompt();
-      continue; // Skip the character handling below
     }
     else if (ch == 127) { // Check for backspace key
       if (!command.empty()) {
@@ -72,11 +64,13 @@ void shellLoop() {
         command.pop_back();
         cout.flush();
       }
-      continue; // Skip the character handling below
+    } else if (ch == 9) {
+      //TODO handle tab key
+    } else {
+      cout << ch;   // Print the character as it is typed
+      cout.flush(); // Flush the output to make it visible immediately
+      command += ch;
     }
-    cout << ch;   // Print the character as it is typed
-    cout.flush(); // Flush the output to make it visible immediately
-    command += ch;
   }
 }
 
