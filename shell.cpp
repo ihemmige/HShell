@@ -1,8 +1,37 @@
 #include "shell.h"
 
+// Functions for interacting with user, processing user input
 void signalHandler(int signum) {
-    cout << "Signal (" << signum << ") received.\n";
+    cout << endl;
     outputPrompt();
+}
+
+void outputPrompt() {
+  string curDirectory = filesystem::current_path().filename().string();
+  cout << "HShell " << curDirectory << " > ";
+  cout << flush;
+}
+
+// Function to get a single character from the terminal without Enter key press
+char getch() {
+  char buf = 0;
+  struct termios old = {0};
+  fflush(stdout);
+  if (tcgetattr(0, &old) < 0)
+    perror("tcsetattr()");
+  old.c_lflag &= ~ICANON;
+  old.c_lflag &= ~ECHO;
+  old.c_cc[VMIN] = 1;
+  old.c_cc[VTIME] = 0;
+  if (tcsetattr(0, TCSANOW, &old) < 0)
+    perror("tcsetattr ICANON");
+  if (read(0, &buf, 1) < 0)
+    perror("read()");
+  old.c_lflag |= ICANON;
+  old.c_lflag |= ECHO;
+  if (tcsetattr(0, TCSADRAIN, &old) < 0)
+    perror("tcsetattr ~ICANON");
+  return buf;
 }
 
 vector<string> parseInput(string input) {
@@ -15,18 +44,110 @@ vector<string> parseInput(string input) {
   return tokens;
 }
 
-void printVector(vector<string>& vec) {
-  for (auto v : vec) {
-    cout << v << " ";
-  }
-  cout << endl;
+void populateArgVector(vector<char*>& args, vector<string>& command) {
+    // args.reserve(command.size() + 1);
+    for (const auto& token : command) {
+        args.push_back(const_cast<char*>(token.c_str()));
+    }
+    args.push_back(nullptr);
 }
 
-void printDeque(deque<string>& d) {
-  for (auto v : d) {
-    cout << v << " ";
+// Functions for triggering execution
+void shellLoop() {
+  signal(SIGINT, signalHandler);
+  string command;
+  char ch;
+  outputPrompt();
+  deque<string> commandHistory;
+  commandHistory.push_back("");
+  size_t historyIndex = commandHistory.size()-1;
+  while (true) {
+    ch = getch();
+    // handle Ctrl + D (EOF)
+    if (ch == 4) {
+      vector<string> temp = {"exit"};
+      handleBuiltins(temp);
+    }
+    
+    if (ch == 27) { // Check for Escape key (arrow keys)
+      ch = getch(); // Read the next character to determine the specific arrow key
+      if (ch == '[') {
+        ch = getch(); // Read the actual arrow key
+        if (ch == 'A') { // up arrow
+          if (historyIndex - 1 < commandHistory.size()) {
+            historyIndex -= 1;
+            int curCommandSize = command.size();
+            for (int i = 0; i < curCommandSize; i++) {
+                cout << "\b \b";
+            }
+            command = commandHistory[historyIndex];
+            cout << command;
+          }
+        }
+        else if (ch == 'B') { // down arrow
+          if (historyIndex + 1 < commandHistory.size()) {
+            historyIndex += 1;
+            int curCommandSize = command.size();
+            for (int i = 0; i < curCommandSize; i++) {
+                cout << "\b \b";
+            }
+            command = commandHistory[historyIndex];
+            cout << command;
+          }
+        } else if (ch == 'C') {
+          //TODO handle right arrow
+        } else if (ch == 'D') {
+          //TODO handle left arrow
+        }
+      }
+    }
+    else if (ch == 10) { // Check for Enter key
+      cout << endl;
+      vector<string> vals = parseInput(command);
+      executeCommand(vals);
+      if (command.size()) addToHistory(commandHistory, command);
+      command.clear();
+      historyIndex = commandHistory.size() - 1;
+      outputPrompt();
+    }
+    else if (ch == 127) { // Check for backspace key
+      if (!command.empty()) {
+        // Remove the last character from the command
+        cout << "\b \b"; // Move the cursor back and overwrite the character with a space
+        command.pop_back();
+        cout.flush();
+      }
+    } else if (ch == 9) {
+      //TODO handle tab key
+    } else {
+      cout << ch;   // Print the character as it is typed
+      cout.flush(); // Flush the output to make it visible immediately
+      command += ch;
+    }
   }
-  cout << endl;
+}
+
+void executeCommand(vector<string>& command) {
+    if (command.empty()) return;
+    if (handleBuiltins(command)) {
+      handleRedirection(command);
+    }
+}
+
+int handleBuiltins(vector<string>& command) {
+    if (command[0] == "cd") {
+      changeDirectory(command);
+      return 0;
+    }
+    if (command[0] == "pwd") {
+      cout << filesystem::current_path().string() << endl;
+      return 0;
+    }
+    if (command[0] == "exit") {
+      cout << "Exiting shell. Goodbye." << endl;
+      exit(EXIT_SUCCESS);
+    }
+    return 1;
 }
 
 void changeDirectory(vector<string>& command) {
@@ -70,6 +191,7 @@ void generateChild(vector<string>& command, int originalStdin, int originalStdou
     dup2(originalStdout, STDOUT_FILENO);
 }
 
+// Functions for advanced functionality
 int handleRedirection(vector<string>& command) {
     string inputFile;
     string outputFile;
@@ -102,65 +224,6 @@ int handleRedirection(vector<string>& command) {
     return 0;
 }
 
-void populateArgVector(vector<char*>& args, vector<string>& command) {
-    // args.reserve(command.size() + 1);
-    for (const auto& token : command) {
-        args.push_back(const_cast<char*>(token.c_str()));
-    }
-    args.push_back(nullptr);
-}
-
-int handleBuiltins(vector<string>& command) {
-    if (command[0] == "cd") {
-      changeDirectory(command);
-      return 0;
-    }
-    if (command[0] == "pwd") {
-      cout << filesystem::current_path().string() << endl;
-      return 0;
-    }
-    if (command[0] == "exit") {
-      cout << "Exiting shell. Goodbye." << endl;
-      exit(EXIT_SUCCESS);
-    }
-    return 1;
-}
-
-void executeCommand(vector<string>& command) {
-    if (command.empty()) return;
-    if (handleBuiltins(command)) {
-      handleRedirection(command);
-    }
-}
-
-void outputPrompt() {
-  string curDirectory = filesystem::current_path().filename().string();
-  cout << "HShell " << curDirectory << " > ";
-  cout << flush;
-}
-
-// Function to get a single character from the terminal without Enter key press
-char getch() {
-  char buf = 0;
-  struct termios old = {0};
-  fflush(stdout);
-  if (tcgetattr(0, &old) < 0)
-    perror("tcsetattr()");
-  old.c_lflag &= ~ICANON;
-  old.c_lflag &= ~ECHO;
-  old.c_cc[VMIN] = 1;
-  old.c_cc[VTIME] = 0;
-  if (tcsetattr(0, TCSANOW, &old) < 0)
-    perror("tcsetattr ICANON");
-  if (read(0, &buf, 1) < 0)
-    perror("read()");
-  old.c_lflag |= ICANON;
-  old.c_lflag |= ECHO;
-  if (tcsetattr(0, TCSADRAIN, &old) < 0)
-    perror("tcsetattr ~ICANON");
-  return buf;
-}
-
 void addToHistory(deque<string>& commandHistory, string newCommand) {
   const int MAXSIZE = 51;
   if (commandHistory.size() == MAXSIZE) {
@@ -169,6 +232,21 @@ void addToHistory(deque<string>& commandHistory, string newCommand) {
   commandHistory.pop_back();
   commandHistory.push_back(newCommand);
   commandHistory.push_back("");
+}
+
+// Functions for testing and argument visibility
+void printVector(vector<string>& vec) {
+  for (auto v : vec) {
+    cout << v << " ";
+  }
+  cout << endl;
+}
+
+void printDeque(deque<string>& d) {
+  for (auto v : d) {
+    cout << v << " ";
+  }
+  cout << endl;
 }
 
 void printString(string s) {

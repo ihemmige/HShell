@@ -18,32 +18,27 @@
 
 using namespace std;
 
+// Functions for interacting with user, processing user input
 void signalHandler(int signum);
-
 void outputPrompt();
-
+char getch();
 vector<string> parseInput(string input);
-
-void printVector(vector<string>& vec);
-
-void changeDirectory(vector<string>& command);
-
-int handleRedirection(vector<string>& command);
-
-void generateChild(vector<string>& command, int originalStdin, int originalStdout);
-
-void executeCommand(vector<string>& command);
-
 void populateArgVector(vector<char*>& args, vector<string>& command);
 
+// Functions for triggering execution
+void shellLoop();
+void executeCommand(vector<string>& command);
 int handleBuiltins(vector<string>& command);
+void changeDirectory(vector<string>& command);
+void generateChild(vector<string>& command, int originalStdin, int originalStdout);
 
-char getch();
-
-void printDeque(deque<string>& d);
-
+// Functions for advanced Functionality
 void addToHistory(deque<string>& commandHistory, string newCommand);
+int handleRedirection(vector<string>& command);
 
+// Functions for testing and argument visibility
+void printVector(vector<string>& vec);
 void printString(string s);
+void printDeque(deque<string>& d);
 
 #endif
