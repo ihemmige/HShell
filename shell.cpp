@@ -8,28 +8,26 @@ void signalHandler(int /*signum*/) {
 
 void outputPrompt() {
   string curDirectory = filesystem::current_path().filename().string();
-  cout << "HShell " << curDirectory << " > ";
-  cout << flush;
+  cout << "HShell " << curDirectory << " > " << flush;
 }
 
 // Function to get a single character from the terminal without Enter key press
 char getch() {
   char buf = 0;
-  struct termios old = {0};
-  fflush(stdout);
-  if (tcgetattr(0, &old) < 0)
+  struct termios original, temp;
+  fflush(stdout); // ensure all pending output is written before changing settings
+  if (tcgetattr(0, &original) < 0) // get the current terminal settings into 'original'
     perror("tcsetattr()");
-  old.c_lflag &= ~ICANON;
-  old.c_lflag &= ~ECHO;
-  old.c_cc[VMIN] = 1;
-  old.c_cc[VTIME] = 0;
-  if (tcsetattr(0, TCSANOW, &old) < 0)
+  temp = original; // copy over the original settings
+  temp.c_lflag &= ~ICANON; // disable canonical mode, so input is not processed line by line
+  temp.c_lflag &= ~ECHO; // disable automatic echo of characters (characters not printed to terminal)
+  temp.c_cc[VMIN] = 1; // minimum characters for a read operation is 1
+  temp.c_cc[VTIME] = 0; // 'read' timeout is 0, 'read' returns immediately when minimum num of characters (1) is available
+  if (tcsetattr(0, TCSANOW, &temp) < 0) // applies terminal settings, immediately (TCSANOW)
     perror("tcsetattr ICANON");
-  if (read(0, &buf, 1) < 0)
+  if (read(0, &buf, 1) < 0) // read one char from terminal into buf
     perror("read()");
-  old.c_lflag |= ICANON;
-  old.c_lflag |= ECHO;
-  if (tcsetattr(0, TCSADRAIN, &old) < 0)
+  if (tcsetattr(0, TCSADRAIN, &original) < 0) // revert terminal settings to original
     perror("tcsetattr ~ICANON");
   return buf;
 }
@@ -45,7 +43,6 @@ vector<string> parseInput(string input) {
 }
 
 void populateArgVector(vector<char*>& args, vector<string>& command) {
-    // args.reserve(command.size() + 1);
     for (const auto& token : command) {
         args.push_back(const_cast<char*>(token.c_str()));
     }
@@ -58,8 +55,7 @@ void shellLoop() {
   string command;
   char ch;
   outputPrompt();
-  deque<string> commandHistory;
-  commandHistory.push_back("");
+  deque<string> commandHistory = {""};
   int historyIndex = commandHistory.size() - 1;
   while (true) {
     ch = getch();
@@ -153,18 +149,19 @@ int handleBuiltins(vector<string>& command) {
 }
 
 void changeDirectory(vector<string>& command) {
+  // execute cd with no arguments, or with tilda
   if (command.size() == 1 || command[1] == "~") {
     const char* home_directory = getenv("HOME");
     if (home_directory) {
       if (chdir(home_directory) != 0) {
-        perror("hsh");
+        perror("HShell");
       }
     } else {
       cerr << "Error: HOME environment variable not set." << std::endl;
     }
-  } else if (command.size() > 1) {
+  } else if (command.size() > 1) { // otherwise, cd has an argument
     if (chdir(command[1].c_str()) != 0) {
-      perror("hsh");
+      perror("HShell");
     }
   } else {
       cerr << "Usage: cd <directory>" << endl;
@@ -182,7 +179,7 @@ void generateChild(vector<string>& command, int originalStdin, int originalStdou
   } else if (pid == 0) {
       // Child process
       execvp(args[0], args.data());
-      perror("hsh");
+      perror("HShell");
       exit(EXIT_FAILURE);
   } else {
       // Parent process
@@ -253,8 +250,7 @@ void printDeque(deque<string>& d) {
 
 void printString(string s) {
   for (char c : s) {
-    if (c == '\t') cout << "\t ";
-    else cout << c << " ";
+    cout << c << " ";
   }
   cout << endl;
 }
