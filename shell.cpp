@@ -1,8 +1,11 @@
 #include "shell.h"
 
+volatile sig_atomic_t flag = 0;
+
 // Functions for interacting with user, processing user input
 void signalHandler(int /*signum*/) {
     cout << endl;
+    flag = 1;
     outputPrompt();
 }
 
@@ -102,13 +105,13 @@ void shellLoop() {
     else if (ch == 10) { // Check for Enter key
       cout << endl;
       vector<string> vals = parseInput(command);
+      flag = 0;
       executeCommand(vals);
       if (command.size()) addToHistory(commandHistory, command);
       command.clear();
       historyIndex = commandHistory.size() - 1;
-      outputPrompt();
-    }
-    else if (ch == 127) { // Check for backspace key
+      if (flag == 0) outputPrompt();
+    } else if (ch == 127) { // Check for backspace key
       if (!command.empty()) {
         // Remove the last character from the command
         cout << "\b \b"; // Move the cursor back and overwrite the character with a space
