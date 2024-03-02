@@ -22,7 +22,7 @@ using namespace std;
 void signalHandler(int signum);
 void outputPrompt();
 char getch();
-vector<string> parseInput(string input);
+vector<string> parseInput(string& input);
 void populateArgVector(vector<char*>& args, vector<string>& command);
 
 // Functions for triggering execution

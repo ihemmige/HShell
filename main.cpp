@@ -1,5 +1,4 @@
 #include "shell.h"
-using namespace std;
 
 int main() {
   shellLoop();

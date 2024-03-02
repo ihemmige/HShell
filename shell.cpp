@@ -2,8 +2,9 @@
 
 volatile sig_atomic_t flag = 0;
 
-// Functions for interacting with user, processing user input
-void signalHandler(int /*signum*/) {
+/* Functions for interacting with user, processing user input */
+
+void signalHandler(int /*signum */) {
     cout << endl;
     flag = 1;
     outputPrompt();
@@ -35,7 +36,8 @@ char getch() {
   return buf;
 }
 
-vector<string> parseInput(string input) {
+// Convert a continuous string into vector of strings
+vector<string> parseInput(string& input) {
   vector<string> tokens;
   stringstream iss(input);
   string token;
@@ -45,20 +47,22 @@ vector<string> parseInput(string input) {
   return tokens;
 }
 
+// execvp requires a C-style array of char pointers (C-style strings)
+// so convert vector of std::string to vector of C-style strings
 void populateArgVector(vector<char*>& args, vector<string>& command) {
     for (const auto& token : command) {
         args.push_back(const_cast<char*>(token.c_str()));
     }
-    args.push_back(nullptr);
+    args.push_back(nullptr); // execvp requires the last element in the array to be NULL
 }
 
-// Functions for triggering execution
+/* Functions for triggering execution */
 void shellLoop() {
-  signal(SIGINT, signalHandler);
+  signal(SIGINT, signalHandler); // handle Ctrl + C
   string command;
-  char ch;
+  char ch; // to read user input into
   outputPrompt();
-  deque<string> commandHistory = {""};
+  deque<string> commandHistory = {""}; // initialize w/ empty string, allow empty command as option when using up-down arrows
   int historyIndex = commandHistory.size() - 1;
   while (true) {
     ch = getch();
@@ -70,28 +74,33 @@ void shellLoop() {
     }
     
     if (ch == 27) { // Check for Escape key (start of sequence for arrow keys)
-      ch = getch(); // Read the next character to determine the specific arrow key
+      ch = getch(); 
       if (ch == '[') { // second character in arrow key sequence
         ch = getch();
         if (ch == 'A') { // up arrow
           // if there is a previous command
           if (historyIndex - 1 >= 0) {
             historyIndex -= 1;
+            // need to remove the existing command from terminal
             int curCommandSize = command.size();
             for (int i = 0; i < curCommandSize; i++) {
                 cout << "\b \b";
             }
+            // access the history command and display
             command = commandHistory[historyIndex];
             cout << command;
           }
         }
         else if (ch == 'B') { // down arrow
+          // if there is a subsequent command
           if (historyIndex + 1 < static_cast<int>(commandHistory.size())) {
             historyIndex += 1;
+            // need to remove the existing command from terminal
             int curCommandSize = command.size();
             for (int i = 0; i < curCommandSize; i++) {
                 cout << "\b \b";
             }
+            // access the history command and display
             command = commandHistory[historyIndex];
             cout << command;
           }
@@ -102,14 +111,14 @@ void shellLoop() {
         }
       }
     }
-    else if (ch == 10) { // Check for Enter key
+    else if (ch == 10) { // Check for Enter key --> user entered a command
       cout << endl;
       vector<string> vals = parseInput(command);
-      flag = 0;
+      flag = 0; // reset signal flag
       executeCommand(vals);
-      if (command.size()) addToHistory(commandHistory, command);
+      if (command.size()) addToHistory(commandHistory, command); // if the command wasn't empty, add it to history
       command.clear();
-      historyIndex = commandHistory.size() - 1;
+      historyIndex = commandHistory.size() - 1; // reset the history pointer
       if (flag == 0) outputPrompt();
     } else if (ch == 127) { // Check for backspace key
       if (!command.empty()) {
@@ -123,18 +132,20 @@ void shellLoop() {
     } else {
       cout << ch;   // Print the character as it is typed
       cout.flush(); // Flush the output to make it visible immediately
-      command += ch;
+      command += ch; // update the command
     }
   }
 }
 
 void executeCommand(vector<string>& command) {
     if (command.empty()) return;
+    // only if command is not a built-in, then handle with fork, execvp etc.
     if (handleBuiltins(command)) {
       handleRedirection(command);
     }
 }
 
+// catch functions that can be handled without a child process
 int handleBuiltins(vector<string>& command) {
     if (command[0] == "cd") {
       changeDirectory(command);
@@ -151,6 +162,7 @@ int handleBuiltins(vector<string>& command) {
     return 1;
 }
 
+// handle cd
 void changeDirectory(vector<string>& command) {
   // execute cd with no arguments, or with tilda
   if (command.size() == 1 || command[1] == "~") {
@@ -162,7 +174,7 @@ void changeDirectory(vector<string>& command) {
     } else {
       cerr << "Error: HOME environment variable not set." << std::endl;
     }
-  } else if (command.size() > 1) { // otherwise, cd has an argument
+  } else if (command.size() > 1) { // otherwise, cd has an argument (besides tilda)
     if (chdir(command[1].c_str()) != 0) {
       perror("HShell");
     }
@@ -193,7 +205,7 @@ void generateChild(vector<string>& command, int originalStdin, int originalStdou
     dup2(originalStdout, STDOUT_FILENO);
 }
 
-// Functions for advanced functionality
+/* Functions for advanced functionality */
 int handleRedirection(vector<string>& command) {
     string inputFile;
     string outputFile;
@@ -236,7 +248,7 @@ void addToHistory(deque<string>& commandHistory, string newCommand) {
   commandHistory.push_back("");
 }
 
-// Functions for testing and argument visibility
+/* Functions for testing and argument visibility */
 void printVector(vector<string>& vec) {
   for (auto v : vec) {
     cout << v << " ";
