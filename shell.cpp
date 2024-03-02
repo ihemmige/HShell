@@ -1,18 +1,20 @@
 #include "shell.h"
 
-volatile sig_atomic_t flag = 0;
+// flag to set when SIGINT is received
+volatile sig_atomic_t sigint_flag = 0;
 
-/* Functions for interacting with user, processing user input */
-
+/* 
+* Functions for interacting with user, processing user input 
+*/
 void signalHandler(int /*signum */) {
     cout << endl;
-    flag = 1;
+    sigint_flag = 1;
     outputPrompt();
 }
 
 void outputPrompt() {
   string curDirectory = filesystem::current_path().filename().string();
-  cout << "HShell " << curDirectory << " > " << flush;
+  cout << "HShell " << curDirectory << " <> " << flush;
 }
 
 // Function to get a single character from the terminal without Enter key press
@@ -56,7 +58,9 @@ void populateArgVector(vector<char*>& args, vector<string>& command) {
     args.push_back(nullptr); // execvp requires the last element in the array to be NULL
 }
 
-/* Functions for triggering execution */
+/* 
+* Functions for triggering execution 
+*/
 void shellLoop() {
   signal(SIGINT, signalHandler); // handle Ctrl + C
   string command;
@@ -114,12 +118,12 @@ void shellLoop() {
     else if (ch == 10) { // Check for Enter key --> user entered a command
       cout << endl;
       vector<string> vals = parseInput(command);
-      flag = 0; // reset signal flag
+      sigint_flag = 0; // reset signal flag
       executeCommand(vals);
       if (command.size()) addToHistory(commandHistory, command); // if the command wasn't empty, add it to history
       command.clear();
       historyIndex = commandHistory.size() - 1; // reset the history pointer
-      if (flag == 0) outputPrompt();
+      if (sigint_flag == 0) outputPrompt();
     } else if (ch == 127) { // Check for backspace key
       if (!command.empty()) {
         // Remove the last character from the command
@@ -209,7 +213,9 @@ void generateChild(vector<string>& command, int originalStdin, int originalStdou
     dup2(originalStdout, STDOUT_FILENO);
 }
 
-/* Functions for advanced functionality */
+/* 
+* Functions for advanced functionality 
+*/
 int handleRedirection(vector<string>& command) {
     string inputFile;
     string outputFile;
@@ -259,7 +265,9 @@ void addToHistory(deque<string>& commandHistory, string newCommand) {
   commandHistory.push_back(""); // add back the "" command
 }
 
-/* Functions for testing and argument visibility */
+/* 
+* Functions for testing and argument visibility 
+*/
 void printVector(vector<string>& vec) {
   for (string v : vec) {
     cout << v << " ";
