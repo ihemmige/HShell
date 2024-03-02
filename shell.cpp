@@ -183,17 +183,20 @@ void changeDirectory(vector<string>& command) {
   }
 }
 
+// fork and run the user's command; also takes file descriptors for terminal, which will be changed
+// if the command involved input/output redirection
 void generateChild(vector<string>& command, int originalStdin, int originalStdout) {
   vector<char*> args;
-  populateArgVector(args, command);
+  populateArgVector(args, command); // execvp requires array of char pointers, not std::vector
   pid_t pid = fork();
   if (pid == -1) {
       perror("fork");
+      // restore standard input and output
       dup2(originalStdin, STDIN_FILENO);
       dup2(originalStdout, STDOUT_FILENO);
   } else if (pid == 0) {
       // Child process
-      execvp(args[0], args.data());
+      execvp(args[0], args.data()); // execute the command
       perror("HShell");
       exit(EXIT_FAILURE);
   } else {
@@ -201,6 +204,7 @@ void generateChild(vector<string>& command, int originalStdin, int originalStdou
       wait(nullptr);
   }
     // restore standard input and output
+    // close where the STDIN and STDOUT currently point, and point them to default
     dup2(originalStdin, STDIN_FILENO);
     dup2(originalStdout, STDOUT_FILENO);
 }
@@ -210,8 +214,12 @@ int handleRedirection(vector<string>& command) {
     string inputFile;
     string outputFile;
     size_t ptr = 0;
+    // detect the ">" operator for output redirection
+    // if multiple such operators are found, the file pointed to by the last one will be used
     while (ptr < command.size()) {
+      // if ">" is found, and a file follows
       if (command[ptr] == ">" && ptr + 1 < command.size()) {
+          // store the file; remove the arrow and file from command
           outputFile = command[ptr + 1];
           command.erase(command.begin() + ptr, command.begin() + ptr + 2);
       }
@@ -220,44 +228,47 @@ int handleRedirection(vector<string>& command) {
       }
     }
 
+    // store the file descriptors for default stdout and stdin
     int originalStdin = dup(STDIN_FILENO);
     int originalStdout = dup(STDOUT_FILENO);
 
-    // Set up file descriptors for output redirection
+    // Set up file descriptor for output redirection
     if (!outputFile.empty()) {
         int fd = open(outputFile.c_str(), O_WRONLY | O_CREAT | O_TRUNC, 0666);
         if (fd == -1) {
             perror("open");
             return 1;
         }
-        dup2(fd, STDOUT_FILENO);
+        dup2(fd, STDOUT_FILENO); // stdout now routes to the newly opened file
         close(fd);
     }
 
-    generateChild(command, originalStdin, originalStdout); // the command is run, and file descriptors reset if necessary
+    // the command is run, and file descriptors subsequently reset if necessary
+    generateChild(command, originalStdin, originalStdout); 
     return 0;
 }
 
 void addToHistory(deque<string>& commandHistory, string newCommand) {
-  const int MAXSIZE = 51;
+  const int MAXSIZE = 51; // small number used for testing, but can increase if desired
+  // remove the command used earliest if at maximum
   if (commandHistory.size() == MAXSIZE) {
     commandHistory.pop_front();
   }
-  commandHistory.pop_back();
-  commandHistory.push_back(newCommand);
-  commandHistory.push_back("");
+  commandHistory.pop_back(); // pop off the "" command
+  commandHistory.push_back(newCommand); // add the new command
+  commandHistory.push_back(""); // add back the "" command
 }
 
 /* Functions for testing and argument visibility */
 void printVector(vector<string>& vec) {
-  for (auto v : vec) {
+  for (string v : vec) {
     cout << v << " ";
   }
   cout << endl;
 }
 
 void printDeque(deque<string>& d) {
-  for (auto v : d) {
+  for (string v : d) {
     cout << v << " ";
   }
   cout << endl;
