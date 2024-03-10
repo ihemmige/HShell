@@ -8,6 +8,7 @@
 #include <unistd.h>
 #include <vector>
 #include <deque> 
+#include <numeric>
 #include <sstream>
 #include <filesystem>
 #include <sys/wait.h>
@@ -30,7 +31,7 @@ void shellLoop();
 void executeCommand(vector<string>& command);
 int handleBuiltins(vector<string>& command);
 void changeDirectory(vector<string>& command);
-void generateChild(vector<string>& command, int originalStdin, int originalStdout);
+void generateChild(vector<string>& command, int originalStdin, int originalStdout, bool inBackground);
 
 // Functions for advanced Functionality
 void addToHistory(deque<string>& commandHistory, string newCommand);
