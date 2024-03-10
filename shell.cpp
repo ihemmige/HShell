@@ -220,28 +220,37 @@ void generateChild(vector<string> &command, int originalStdin,
   pid_t pid = fork();
   if (pid == -1) {
     perror("fork");
-    // restore standard input and output
+    // Restore standard input and output
     dup2(originalStdin, STDIN_FILENO);
     dup2(originalStdout, STDOUT_FILENO);
   } else if (pid == 0) {
     // Child process
-
     if (inBackground) {
-      setsid();
+      // Close standard input and output
+      close(STDIN_FILENO);
+      close(STDOUT_FILENO);
+
+      // Create a new session and become the session leader
+      if (setsid() == -1) {
+        perror("setsid");
+        exit(EXIT_FAILURE);
+      }
     }
-    execvp(args[0], args.data()); // execute the command
+    // Execute the command
+    execvp(args[0], args.data());
     perror("HShell");
     exit(EXIT_FAILURE);
   } else {
     // Parent process
     if (!inBackground) {
-      wait(nullptr);
+      waitpid(pid, nullptr, 0);
     } else {
       cout << "Command '" << regenerateCommand(command)
-           << "' running with PID: " << pid << endl;
+           << "' running in the background with PID: " << pid << endl;
     }
   }
-  // restore standard input and output
+
+  // Restore standard input and output
   // close where the STDIN and STDOUT currently point, and point them to default
   dup2(originalStdin, STDIN_FILENO);
   dup2(originalStdout, STDOUT_FILENO);
@@ -270,9 +279,14 @@ int handleRedirection(vector<string> &command) {
 
   // check if user requested for process to run in the background
   bool inBackground = false;
-  if (command.size() && command.back() == "&") {
-    inBackground = true;
-    command.pop_back();
+  if (command.size()) {
+    if (command.back() == "&") {
+      inBackground = true;
+      command.pop_back();
+    } else if (command.back().back() == '&') {
+      inBackground = true;
+      command.back().pop_back();
+    }
   }
 
   // store the file descriptors for default stdout and stdin
