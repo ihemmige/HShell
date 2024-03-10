@@ -1,6 +1,7 @@
 #include "shell.h"
 
 int main() {
-  shellLoop();
+  Shell shell;
+  shell.shellLoop();
   return 0;
 }

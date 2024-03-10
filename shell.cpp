@@ -3,22 +3,19 @@
 // flag to set when SIGINT is received
 volatile sig_atomic_t sigint_flag = 0;
 
-/*
- * Functions for interacting with user, processing user input
- */
-void signalHandler(int /*signum */) {
+void Shell::signalHandler(int /*signum */) {
   cout << endl;
   sigint_flag = 1;
   outputPrompt();
 }
 
-void outputPrompt() {
+void Shell::outputPrompt() {
   string curDirectory = filesystem::current_path().filename().string();
   cout << "HShell " << curDirectory << " <> " << flush;
 }
 
 // Function to get a single character from the terminal without Enter key press
-char getch() {
+char Shell::getch() {
   char buf = 0;
   struct termios original, temp;
   fflush(
@@ -46,7 +43,7 @@ char getch() {
 }
 
 // Convert a continuous string into vector of strings
-vector<string> parseInput(string &input) {
+vector<string> Shell::parseInput(string &input) {
   vector<string> tokens;
   stringstream iss(input);
   string token;
@@ -58,7 +55,7 @@ vector<string> parseInput(string &input) {
 
 // execvp requires a C-style array of char pointers (C-style strings)
 // so convert vector of std::string to vector of C-style strings
-void populateArgVector(vector<char *> &args, vector<string> &command) {
+void Shell::populateArgVector(vector<char *> &args, vector<string> &command) {
   for (const auto &token : command) {
     args.push_back(const_cast<char *>(token.c_str()));
   }
@@ -66,16 +63,14 @@ void populateArgVector(vector<char *> &args, vector<string> &command) {
       nullptr); // execvp requires the last element in the array to be NULL
 }
 
-/*
- * Functions for triggering execution
- */
-void shellLoop() {
-  signal(SIGINT, signalHandler); // handle Ctrl + C
+
+void Shell::shellLoop() {
   string command;
+  signal(SIGINT, Shell::signalHandler); // handle Ctrl + C
+
   char ch; // to read user input into
   outputPrompt();
-  deque<string> commandHistory = {
-      ""}; // initialize w/ empty string, allow empty command as option when
+  deque<string> commandHistory = {""}; // initialize w/ empty string, allow empty command as option when
            // using up-down arrows
   int historyIndex = commandHistory.size() - 1;
   while (true) {
@@ -153,7 +148,7 @@ void shellLoop() {
   }
 }
 
-void executeCommand(vector<string> &command) {
+void Shell::executeCommand(vector<string> &command) {
   if (command.empty())
     return;
   // only if command is not a built-in, then handle with fork, execvp etc.
@@ -163,7 +158,7 @@ void executeCommand(vector<string> &command) {
 }
 
 // catch functions that can be handled without a child process
-int handleBuiltins(vector<string> &command) {
+int Shell::handleBuiltins(vector<string> &command) {
   if (command[0] == "cd") {
     changeDirectory(command);
     return 0;
@@ -180,7 +175,7 @@ int handleBuiltins(vector<string> &command) {
 }
 
 // handle cd
-void changeDirectory(vector<string> &command) {
+void Shell::changeDirectory(vector<string> &command) {
   // execute cd with no arguments, or with tilda
   if (command.size() == 1 || command[1] == "~") {
     const char *home_directory = getenv("HOME");
@@ -212,7 +207,7 @@ string regenerateCommand(vector<string> &command) {
 
 // fork and run the user's command; also takes file descriptors for terminal,
 // which will be changed if the command involved input/output redirection
-void generateChild(vector<string> &command, int originalStdin,
+void Shell::generateChild(vector<string> &command, int originalStdin,
                    int originalStdout, bool inBackground) {
   vector<char *> args;
   populateArgVector(
@@ -256,10 +251,7 @@ void generateChild(vector<string> &command, int originalStdin,
   dup2(originalStdout, STDOUT_FILENO);
 }
 
-/*
- * Functions for advanced functionality
- */
-int handleRedirection(vector<string> &command) {
+int Shell::handleRedirection(vector<string> &command) {
   string inputFile;
   string outputFile;
   size_t ptr = 0;
@@ -309,7 +301,7 @@ int handleRedirection(vector<string> &command) {
   return 0;
 }
 
-void addToHistory(deque<string> &commandHistory, string newCommand) {
+void Shell::addToHistory(deque<string> &commandHistory, string newCommand) {
   const int MAXSIZE =
       51; // small number used for testing, but can increase if desired
   // remove the command used earliest if at maximum
@@ -320,25 +312,21 @@ void addToHistory(deque<string> &commandHistory, string newCommand) {
   commandHistory.push_back(newCommand); // add the new command
   commandHistory.push_back("");         // add back the "" command
 }
-
-/*
- * Functions for testing and argument visibility
- */
-void printVector(vector<string> &vec) {
+void Shell::printVector(vector<string> &vec) {
   for (string v : vec) {
     cout << v << " ";
   }
   cout << endl;
 }
 
-void printDeque(deque<string> &d) {
+void Shell::printDeque(deque<string> &d) {
   for (string v : d) {
     cout << v << " ";
   }
   cout << endl;
 }
 
-void printString(string s) {
+void Shell::printString(string s) {
   for (char c : s) {
     cout << c << " ";
   }
