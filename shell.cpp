@@ -3,6 +3,11 @@
 // flag to set when SIGINT is received
 volatile sig_atomic_t sigint_flag = 0;
 
+Shell::Shell() {
+  // initialize the command history with an empty command
+  this->commandHistory.push_back("");
+}
+
 void Shell::signalHandler(int /*signum */) {
   cout << endl;
   sigint_flag = 1;
@@ -63,16 +68,12 @@ void Shell::populateArgVector(vector<char *> &args, vector<string> &command) {
       nullptr); // execvp requires the last element in the array to be NULL
 }
 
-
 void Shell::shellLoop() {
   string command;
   signal(SIGINT, Shell::signalHandler); // handle Ctrl + C
-
   char ch; // to read user input into
   outputPrompt();
-  deque<string> commandHistory = {""}; // initialize w/ empty string, allow empty command as option when
-           // using up-down arrows
-  int historyIndex = commandHistory.size() - 1;
+  int historyIndex = this->commandHistory.size() - 1;
   while (true) {
     ch = getch();
 
@@ -96,12 +97,12 @@ void Shell::shellLoop() {
               cout << "\b \b";
             }
             // access the history command and display
-            command = commandHistory[historyIndex];
+            command = this->commandHistory[historyIndex];
             cout << command;
           }
         } else if (ch == 'B') { // down arrow
           // if there is a subsequent command
-          if (historyIndex + 1 < static_cast<int>(commandHistory.size())) {
+          if (historyIndex + 1 < static_cast<int>(this->commandHistory.size())) {
             historyIndex += 1;
             // need to remove the existing command from terminal
             int curCommandSize = command.size();
@@ -109,7 +110,7 @@ void Shell::shellLoop() {
               cout << "\b \b";
             }
             // access the history command and display
-            command = commandHistory[historyIndex];
+            command = this->commandHistory[historyIndex];
             cout << command;
           }
         } else if (ch == 'C') {
@@ -123,11 +124,13 @@ void Shell::shellLoop() {
       vector<string> vals = parseInput(command);
       sigint_flag = 0; // reset signal flag
       executeCommand(vals);
-      if (command.size())
-        addToHistory(commandHistory,
-                     command); // if the command wasn't empty, add it to history
+      if (command.size()) {
+        addToHistory(command); // if the command wasn't empty, add it to history
+
+      }
+
       command.clear();
-      historyIndex = commandHistory.size() - 1; // reset the history pointer
+      historyIndex = this->commandHistory.size() - 1; // reset the history pointer
       if (sigint_flag == 0)
         outputPrompt();
     } else if (ch == 127) { // Check for backspace key
@@ -301,32 +304,33 @@ int Shell::handleRedirection(vector<string> &command) {
   return 0;
 }
 
-void Shell::addToHistory(deque<string> &commandHistory, string newCommand) {
+void Shell::addToHistory(string newCommand) {
   const int MAXSIZE =
       51; // small number used for testing, but can increase if desired
   // remove the command used earliest if at maximum
-  if (commandHistory.size() == MAXSIZE) {
-    commandHistory.pop_front();
+  if (this->commandHistory.size() == MAXSIZE) {
+    this->commandHistory.pop_front();
   }
-  commandHistory.pop_back();            // pop off the "" command
-  commandHistory.push_back(newCommand); // add the new command
-  commandHistory.push_back("");         // add back the "" command
+  this->commandHistory.pop_back();            // pop off the "" command
+  this->commandHistory.push_back(newCommand); // add the new command
+  this->commandHistory.push_back("");         // add back the "" command
 }
-void Shell::printVector(vector<string> &vec) {
+
+void printVector(vector<string> &vec) {
   for (string v : vec) {
     cout << v << " ";
   }
   cout << endl;
 }
 
-void Shell::printDeque(deque<string> &d) {
+void printDeque(deque<string> &d) {
   for (string v : d) {
     cout << v << " ";
   }
   cout << endl;
 }
 
-void Shell::printString(string s) {
+void printString(string s) {
   for (char c : s) {
     cout << c << " ";
   }

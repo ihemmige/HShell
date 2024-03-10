@@ -20,11 +20,12 @@
 using namespace std;
 
 class Shell {
-public:
+private:
+  deque<string> commandHistory;
+  static void signalHandler(int signum);
   /*
    * Functions for interacting with user, processing user input
    */
-  static void signalHandler(int signum);
   static void outputPrompt();
   char getch();
   vector<string> parseInput(string &input);
@@ -33,7 +34,6 @@ public:
   /*
    * Functions for triggering execution
    */
-  void shellLoop();
   void executeCommand(vector<string> &command);
   int handleBuiltins(vector<string> &command);
   void changeDirectory(vector<string> &command);
@@ -43,15 +43,19 @@ public:
   /*
    * Functions for advanced functionality
    */
-  void addToHistory(deque<string> &commandHistory, string newCommand);
+  void addToHistory(string newCommand);
   int handleRedirection(vector<string> &command);
 
-  /*
-   * Functions for testing and argument visibility
-   */
-  void printVector(vector<string> &vec);
-  void printString(string s);
-  void printDeque(deque<string> &d);
+public:
+  Shell();
+  void shellLoop();
 };
+
+/*
+ * Functions for testing and argument visibility
+ */
+void printVector(vector<string> &vec);
+void printString(string s);
+void printDeque(deque<string> &d);
 
 #endif
