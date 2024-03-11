@@ -6,6 +6,7 @@
 #include <fcntl.h>
 #include <filesystem>
 #include <iostream>
+#include <unordered_map>
 #include <numeric>
 #include <sstream>
 #include <stdio.h>
@@ -22,6 +23,7 @@ using namespace std;
 class Shell {
 private:
   deque<string> commandHistory;
+  unordered_map<int, string> jobMap;
   static void signalHandler(int signum);
   /*
    * Functions for interacting with user, processing user input

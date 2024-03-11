@@ -174,6 +174,15 @@ int Shell::handleBuiltins(vector<string> &command) {
     cout << "Exiting shell. Goodbye." << endl;
     exit(EXIT_SUCCESS);
   }
+  if (command[0] == "jobs") {
+    // Print table header
+    cout << "PID\tCOMMAND" << endl;
+    // Iterate through the unordered_map and print entries
+    for (const auto& entry : jobMap) {
+        cout << entry.first << "\t" << "'" << entry.second << "'" << endl;
+    }
+    return 0;
+  }
   return 1;
 }
 
@@ -206,6 +215,22 @@ string regenerateCommand(vector<string> &command) {
       [separator](const std::string &acc, const std::string &str) {
         return acc + separator + str;
       });
+}
+
+bool isProcessRunning(pid_t pid) {
+    int status;
+    pid_t result = waitpid(pid, &status, WNOHANG);
+
+    if (result == 0) {
+        // Process is still running
+        return true;
+    } else if (result == -1) {
+        // An error occurred (process not found, or other issues)
+        return false;
+    } else {
+        // Process has terminated
+        return false;
+    }
 }
 
 // fork and run the user's command; also takes file descriptors for terminal,
@@ -243,7 +268,9 @@ void Shell::generateChild(vector<string> &command, int originalStdin,
     if (!inBackground) {
       waitpid(pid, nullptr, 0);
     } else {
-      cout << "Command '" << regenerateCommand(command)
+      usleep(15000); // to ensure proper output formatting; allow execvp error to print before next prompt
+      jobMap[pid] = regenerateCommand(command);
+        cout << "Command '" << regenerateCommand(command)
            << "' running in the background with PID: " << pid << endl;
     }
   }
