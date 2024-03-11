@@ -9,4 +9,4 @@ Uses fork() and execvp() to run commands
 
 why execvp?
 
-background execution using '&' token at end of command
+background execution using '&' token at end of command; had to handle SIGCHLD signals, mask signals as needed to ensure output was accurate, etc.
