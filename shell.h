@@ -23,8 +23,9 @@ using namespace std;
 class Shell {
 private:
   deque<string> commandHistory;
-  unordered_map<int, string> jobMap;
+  // unordered_map<int, string> jobMap;
   static void signalHandler(int signum);
+  static void childSignal(int signum);
   /*
    * Functions for interacting with user, processing user input
    */
@@ -38,6 +39,7 @@ private:
    */
   void executeCommand(vector<string> &command);
   int handleBuiltins(vector<string> &command);
+  void printJobs();
   void changeDirectory(vector<string> &command);
   void generateChild(vector<string> &command, int originalStdin,
                      int originalStdout, bool inBackground);

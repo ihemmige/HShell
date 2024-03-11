@@ -1,7 +1,11 @@
 #include "shell.h"
+#include <mutex>
 
 // flag to set when SIGINT is received
 volatile sig_atomic_t sigint_flag = 0;
+
+unordered_map<int, string> jobMap; 
+std::mutex jobMapMutex;
 
 Shell::Shell() {
   // initialize the command history with an empty command
@@ -12,6 +16,16 @@ void Shell::signalHandler(int /*signum */) {
   cout << endl;
   sigint_flag = 1;
   outputPrompt();
+}
+
+void Shell::childSignal(int /* signum */) {
+  int status;
+  pid_t pid = waitpid(-1, &status, WNOHANG);
+  if (pid > 0) {
+    // cout << "Process with PID " << pid << " has terminated." << endl;
+    std::lock_guard<std::mutex> lock(jobMapMutex);
+    jobMap.erase(pid);
+  }
 }
 
 void Shell::outputPrompt() {
@@ -71,6 +85,7 @@ void Shell::populateArgVector(vector<char *> &args, vector<string> &command) {
 void Shell::shellLoop() {
   string command;
   signal(SIGINT, Shell::signalHandler); // handle Ctrl + C
+  signal(SIGCHLD, Shell::childSignal);
   char ch; // to read user input into
   outputPrompt();
   int historyIndex = this->commandHistory.size() - 1;
@@ -175,15 +190,22 @@ int Shell::handleBuiltins(vector<string> &command) {
     exit(EXIT_SUCCESS);
   }
   if (command[0] == "jobs") {
-    // Print table header
+    printJobs();
+    return 0;
+  }
+  return 1;
+}
+
+void Shell::printJobs() {
+  // Print table header
+  lock_guard<mutex> lock(jobMapMutex);
+  if (jobMap.size() > 0) {
     cout << "PID\tCOMMAND" << endl;
     // Iterate through the unordered_map and print entries
     for (const auto& entry : jobMap) {
         cout << entry.first << "\t" << "'" << entry.second << "'" << endl;
     }
-    return 0;
   }
-  return 1;
 }
 
 // handle cd
@@ -215,22 +237,6 @@ string regenerateCommand(vector<string> &command) {
       [separator](const std::string &acc, const std::string &str) {
         return acc + separator + str;
       });
-}
-
-bool isProcessRunning(pid_t pid) {
-    int status;
-    pid_t result = waitpid(pid, &status, WNOHANG);
-
-    if (result == 0) {
-        // Process is still running
-        return true;
-    } else if (result == -1) {
-        // An error occurred (process not found, or other issues)
-        return false;
-    } else {
-        // Process has terminated
-        return false;
-    }
 }
 
 // fork and run the user's command; also takes file descriptors for terminal,
