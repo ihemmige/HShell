@@ -2,10 +2,11 @@
 #include <mutex>
 
 // flag to set when SIGINT is received
-volatile sig_atomic_t sigint_flag = 0;
-
-unordered_map<int, string> jobMap; 
+volatile sig_atomic_t sig_flag = 0;
+string command;
+unordered_map<int, string> jobMap;
 std::mutex jobMapMutex;
+unordered_map<int, string> mapping({{1, "exit 1"}, {0, "done"}});
 
 Shell::Shell() {
   // initialize the command history with an empty command
@@ -14,22 +15,28 @@ Shell::Shell() {
 
 void Shell::signalHandler(int /*signum */) {
   cout << endl;
-  sigint_flag = 1;
+  sig_flag = 1;
   outputPrompt();
 }
 
 void Shell::childSignal(int /* signum */) {
   int status;
   pid_t pid = waitpid(-1, &status, WNOHANG);
-  if (pid > 0) {
+  lock_guard<mutex> lock(jobMapMutex);
+  if (pid > 0 && jobMap.contains(pid)) {
+    // lock_guard<mutex> lock(jobMapMutex);
     // cout << "Process with PID " << pid << " has terminated." << endl;
-    std::lock_guard<std::mutex> lock(jobMapMutex);
+    int exit_code = WEXITSTATUS(status);
+    cout << endl << mapping[exit_code] << "\t\t" << jobMap[pid] << endl;
     jobMap.erase(pid);
+    outputPrompt();
+    sig_flag = 1;
   }
 }
 
 void Shell::outputPrompt() {
   string curDirectory = filesystem::current_path().filename().string();
+  command.erase();
   cout << "HShell " << curDirectory << " <> " << flush;
 }
 
@@ -83,9 +90,15 @@ void Shell::populateArgVector(vector<char *> &args, vector<string> &command) {
 }
 
 void Shell::shellLoop() {
-  string command;
   signal(SIGINT, Shell::signalHandler); // handle Ctrl + C
-  signal(SIGCHLD, Shell::childSignal);
+
+  // signal(SIGCHLD, Shell::childSignal);
+  struct sigaction sa;
+  sa.sa_handler = Shell::childSignal;
+  sa.sa_flags = SA_RESTART; // Add SA_RESTART flag to automatically restart
+                            // interrupted system calls
+  sigaction(SIGCHLD, &sa, nullptr);
+
   char ch; // to read user input into
   outputPrompt();
   int historyIndex = this->commandHistory.size() - 1;
@@ -117,7 +130,8 @@ void Shell::shellLoop() {
           }
         } else if (ch == 'B') { // down arrow
           // if there is a subsequent command
-          if (historyIndex + 1 < static_cast<int>(this->commandHistory.size())) {
+          if (historyIndex + 1 <
+              static_cast<int>(this->commandHistory.size())) {
             historyIndex += 1;
             // need to remove the existing command from terminal
             int curCommandSize = command.size();
@@ -137,16 +151,15 @@ void Shell::shellLoop() {
     } else if (ch == 10) { // Check for Enter key --> user entered a command
       cout << endl;
       vector<string> vals = parseInput(command);
-      sigint_flag = 0; // reset signal flag
+      sig_flag = 0; // reset signal flag
       executeCommand(vals);
       if (command.size()) {
         addToHistory(command); // if the command wasn't empty, add it to history
-
       }
-
       command.clear();
-      historyIndex = this->commandHistory.size() - 1; // reset the history pointer
-      if (sigint_flag == 0)
+      historyIndex =
+          this->commandHistory.size() - 1; // reset the history pointer
+      if (sig_flag == 0)
         outputPrompt();
     } else if (ch == 127) { // Check for backspace key
       if (!command.empty()) {
@@ -200,10 +213,12 @@ void Shell::printJobs() {
   // Print table header
   lock_guard<mutex> lock(jobMapMutex);
   if (jobMap.size() > 0) {
-    cout << "PID\tCOMMAND" << endl;
+    // cout << "STATUS\tCOMMAND" << endl;
     // Iterate through the unordered_map and print entries
-    for (const auto& entry : jobMap) {
-        cout << entry.first << "\t" << "'" << entry.second << "'" << endl;
+    for (const auto &entry : jobMap) {
+      cout << "running"
+           << "\t\t"
+           << "'" << entry.second << "'" << endl;
     }
   }
 }
@@ -242,7 +257,7 @@ string regenerateCommand(vector<string> &command) {
 // fork and run the user's command; also takes file descriptors for terminal,
 // which will be changed if the command involved input/output redirection
 void Shell::generateChild(vector<string> &command, int originalStdin,
-                   int originalStdout, bool inBackground) {
+                          int originalStdout, bool inBackground) {
   vector<char *> args;
   populateArgVector(
       args, command); // execvp requires array of char pointers, not std::vector
@@ -274,10 +289,25 @@ void Shell::generateChild(vector<string> &command, int originalStdin,
     if (!inBackground) {
       waitpid(pid, nullptr, 0);
     } else {
-      usleep(15000); // to ensure proper output formatting; allow execvp error to print before next prompt
-      jobMap[pid] = regenerateCommand(command);
+      sigset_t mask;
+      sigemptyset(&mask);
+      sigaddset(&mask, SIGCHLD);
+      // Block SIGCHLD
+      if (sigprocmask(SIG_BLOCK, &mask, nullptr) == -1) {
+        perror("sigprocmask");
+        // Handle error
+      }
+      {
+        lock_guard<mutex> lock(jobMapMutex);
+        jobMap[pid] = regenerateCommand(command);
         cout << "Command '" << regenerateCommand(command)
-           << "' running in the background with PID: " << pid << endl;
+             << "' running in the background with PID: " << pid << endl;
+      }
+      if (sigprocmask(SIG_UNBLOCK, &mask, nullptr) == -1) {
+        perror("sigprocmask");
+      }
+      usleep(15000); // to ensure proper output formatting; allow execvp error
+                     // to print before next prompt
     }
   }
 
