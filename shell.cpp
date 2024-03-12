@@ -236,8 +236,14 @@ void Shell::printJobs() {
   // Print table header
   lock_guard<mutex> lock(jobMapMutex);
   if (jobMap.size() > 0) {
+    // sort the map
+    vector<pair<int, pair<string, int>>> sortedJobs(jobMap.begin(), jobMap.end());
+    std::sort(sortedJobs.begin(), sortedJobs.end(),
+              [](const auto& lhs, const auto& rhs) {
+                  return lhs.second.second < rhs.second.second;
+              });
     // Iterate through the unordered_map and print job entries
-    for (const auto &entry : jobMap) {
+    for (const auto &entry : sortedJobs) {
       cout << "[" << entry.second.second << "]    "
            << "running"
            << "\t\t" << entry.second.first << endl;
