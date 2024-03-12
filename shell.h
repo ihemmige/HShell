@@ -17,14 +17,14 @@
 #include <termios.h>
 #include <unistd.h>
 #include <vector>
+#include <mutex>
 
 using namespace std;
 
 class Shell {
 private:
   deque<string> commandHistory;
-  // unordered_map<int, string> jobMap;
-  static void signalHandler(int signum);
+  static void interruptSignal(int signum);
   static void childSignal(int signum);
   /*
    * Functions for interacting with user, processing user input

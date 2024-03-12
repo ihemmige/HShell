@@ -1,21 +1,26 @@
 #include "shell.h"
-#include <mutex>
+const string FAILED_JOB = "exit 1";
+const string SUCCESS_JOB = "done";
 
 // flag to set when SIGINT is received
 volatile sig_atomic_t sig_flag = 0;
 string command;
-unordered_map<int, string> jobMap;
-std::mutex jobMapMutex;
-unordered_map<int, string> mapping({{1, "exit 1"}, {0, "done"}});
+unordered_map<int, pair<string, int>> jobMap;
+mutex jobMapMutex;
+
+int smallest = 1;
+unordered_set<int> below;
+
 
 Shell::Shell() {
   // initialize the command history with an empty command
   this->commandHistory.push_back("");
 }
 
-void Shell::signalHandler(int /*signum */) {
+void Shell::interruptSignal(int /*signum */) {
   cout << endl;
   sig_flag = 1;
+  command.erase();
   outputPrompt();
 }
 
@@ -24,10 +29,13 @@ void Shell::childSignal(int /* signum */) {
   pid_t pid = waitpid(-1, &status, WNOHANG);
   lock_guard<mutex> lock(jobMapMutex);
   if (pid > 0 && jobMap.contains(pid)) {
-    // lock_guard<mutex> lock(jobMapMutex);
-    // cout << "Process with PID " << pid << " has terminated." << endl;
     int exit_code = WEXITSTATUS(status);
-    cout << endl << mapping[exit_code] << "\t\t" << jobMap[pid] << endl;
+    string exit_message = ((exit_code == 0) ? SUCCESS_JOB : FAILED_JOB);
+    string command = jobMap[pid].first;
+    int jobNum = jobMap[pid].second;
+    cout << endl
+         << "[" << jobNum << "]\t" << exit_message << "\t\t" << command
+         << endl;
     jobMap.erase(pid);
     outputPrompt();
     sig_flag = 1;
@@ -36,8 +44,7 @@ void Shell::childSignal(int /* signum */) {
 
 void Shell::outputPrompt() {
   string curDirectory = filesystem::current_path().filename().string();
-  command.erase();
-  cout << "HShell " << curDirectory << " <> " << flush;
+  cout << "HShell " << curDirectory << " <> " << command << flush;
 }
 
 // Function to get a single character from the terminal without Enter key press
@@ -90,16 +97,9 @@ void Shell::populateArgVector(vector<char *> &args, vector<string> &command) {
 }
 
 void Shell::shellLoop() {
-  signal(SIGINT, Shell::signalHandler); // handle Ctrl + C
-
-  // signal(SIGCHLD, Shell::childSignal);
-  struct sigaction sa;
-  sa.sa_handler = Shell::childSignal;
-  sa.sa_flags = SA_RESTART; // Add SA_RESTART flag to automatically restart
-                            // interrupted system calls
-  sigaction(SIGCHLD, &sa, nullptr);
-
-  char ch; // to read user input into
+  signal(SIGINT, Shell::interruptSignal); // handle Ctrl + C
+  signal(SIGCHLD, Shell::childSignal);    // when child processes terminates
+  char ch;                                // to read user input into
   outputPrompt();
   int historyIndex = this->commandHistory.size() - 1;
   while (true) {
@@ -213,12 +213,11 @@ void Shell::printJobs() {
   // Print table header
   lock_guard<mutex> lock(jobMapMutex);
   if (jobMap.size() > 0) {
-    // cout << "STATUS\tCOMMAND" << endl;
-    // Iterate through the unordered_map and print entries
+    // Iterate through the unordered_map and print job entries
     for (const auto &entry : jobMap) {
-      cout << "running"
-           << "\t\t"
-           << "'" << entry.second << "'" << endl;
+      cout << "[" << entry.second.second << "]    "
+           << "running"
+           << "\t\t" << entry.second.first << endl;
     }
   }
 }
@@ -299,15 +298,15 @@ void Shell::generateChild(vector<string> &command, int originalStdin,
       }
       {
         lock_guard<mutex> lock(jobMapMutex);
-        jobMap[pid] = regenerateCommand(command);
-        cout << "Command '" << regenerateCommand(command)
-             << "' running in the background with PID: " << pid << endl;
+        jobMap[pid] = {regenerateCommand(command), 1};
+        // make a line here to provide a job number and PID
+        cout << "[" << jobMap[pid].second << "] " << pid << endl;
       }
       if (sigprocmask(SIG_UNBLOCK, &mask, nullptr) == -1) {
         perror("sigprocmask");
       }
-      usleep(15000); // to ensure proper output formatting; allow execvp error
-                     // to print before next prompt
+      // usleep(15000); // to ensure proper output formatting; allow execvp
+      // error to print before next prompt
     }
   }
 
