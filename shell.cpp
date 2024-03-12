@@ -9,8 +9,30 @@ unordered_map<int, pair<string, int>> jobMap;
 mutex jobMapMutex;
 
 int smallest = 1;
-unordered_set<int> below;
+set<int> below;
 
+int createJobNum() {
+  if (below.size()) {
+    int temp = *below.begin();
+    if (temp < smallest) {
+      below.erase(temp);
+      return temp;
+    }
+  }
+  smallest++;
+  return smallest - 1;
+}
+
+void returnJobNum(int num) {
+  if (num >= smallest) {
+    return;
+  }
+  if (num + 1 == smallest) {
+    smallest -= 1;
+  } else {
+    below.insert(num);
+  }
+}
 
 Shell::Shell() {
   // initialize the command history with an empty command
@@ -37,6 +59,7 @@ void Shell::childSignal(int /* signum */) {
          << "[" << jobNum << "]\t" << exit_message << "\t\t" << command
          << endl;
     jobMap.erase(pid);
+    returnJobNum(jobNum);
     outputPrompt();
     sig_flag = 1;
   }
@@ -298,7 +321,7 @@ void Shell::generateChild(vector<string> &command, int originalStdin,
       }
       {
         lock_guard<mutex> lock(jobMapMutex);
-        jobMap[pid] = {regenerateCommand(command), 1};
+        jobMap[pid] = {regenerateCommand(command), createJobNum()};
         // make a line here to provide a job number and PID
         cout << "[" << jobMap[pid].second << "] " << pid << endl;
       }
