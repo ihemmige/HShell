@@ -1,14 +1,14 @@
 #ifndef SHELL_H
 #define SHELL_H
 
-#include <csignal>
-#include <deque>
-#include <fcntl.h>
 #include <filesystem>
 #include <iostream>
+#include <deque>
 #include <unordered_map>
-// #include <unordered_set>
 #include <set>
+#include <vector>
+#include <csignal>
+#include <fcntl.h>
 #include <numeric>
 #include <sstream>
 #include <stdio.h>
@@ -18,7 +18,6 @@
 #include <sys/wait.h>
 #include <termios.h>
 #include <unistd.h>
-#include <vector>
 #include <mutex>
 
 using namespace std;
@@ -43,6 +42,7 @@ private:
   int handleBuiltins(vector<string> &command);
   void printJobs();
   void changeDirectory(vector<string> &command);
+  string regenerateCommand(vector<string> &command);
   void generateChild(vector<string> &command, int originalStdin,
                      int originalStdout, bool inBackground);
 

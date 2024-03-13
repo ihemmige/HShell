@@ -4,13 +4,18 @@ const string SUCCESS_JOB = "done";
 
 // flag to set when SIGINT is received
 volatile sig_atomic_t sig_flag = 0;
+
+// current command, jobs list, and mutex need to be accessed by signal handler
+// AND in shell member functions
 string command;
-unordered_map<int, pair<string, int>> jobMap;
+unordered_map<int, pair<string, int> > jobMap;
 mutex jobMapMutex;
 
+// variables for job number management
 int smallest = 1;
 set<int> below;
 
+// generate the next smallest job number (positive integer)
 int createJobNum() {
   if (below.size()) {
     int temp = *below.begin();
@@ -23,6 +28,7 @@ int createJobNum() {
   return smallest - 1;
 }
 
+// for when job completes, return that number to the pool
 void returnJobNum(int num) {
   if (num >= smallest) {
     return;
@@ -39,6 +45,7 @@ Shell::Shell() {
   this->commandHistory.push_back("");
 }
 
+// signal handlers for SIGINT and SIGCHLD
 void Shell::interruptSignal(int /*signum */) {
   cout << endl;
   sig_flag = 1;
@@ -48,18 +55,20 @@ void Shell::interruptSignal(int /*signum */) {
 
 void Shell::childSignal(int /* signum */) {
   int status;
+  // wait for the child process that just exited
   pid_t pid = waitpid(-1, &status, WNOHANG);
   lock_guard<mutex> lock(jobMapMutex);
+  // if the job is a background process
   if (pid > 0 && jobMap.contains(pid)) {
     int exit_code = WEXITSTATUS(status);
     string exit_message = ((exit_code == 0) ? SUCCESS_JOB : FAILED_JOB);
     string command = jobMap[pid].first;
     int jobNum = jobMap[pid].second;
+    // output an update regarding the process that just completed
     cout << endl
-         << "[" << jobNum << "]\t" << exit_message << "\t\t" << command
-         << endl;
-    jobMap.erase(pid);
-    returnJobNum(jobNum);
+         << "[" << jobNum << "]\t" << exit_message << "\t" << command << endl;
+    jobMap.erase(pid);    // remove the job
+    returnJobNum(jobNum); // return the job number
     outputPrompt();
     sig_flag = 1;
   }
@@ -232,21 +241,23 @@ int Shell::handleBuiltins(vector<string> &command) {
   return 1;
 }
 
+// for the 'jobs' command
 void Shell::printJobs() {
   // Print table header
   lock_guard<mutex> lock(jobMapMutex);
   if (jobMap.size() > 0) {
-    // sort the map
-    vector<pair<int, pair<string, int>>> sortedJobs(jobMap.begin(), jobMap.end());
-    std::sort(sortedJobs.begin(), sortedJobs.end(),
-              [](const auto& lhs, const auto& rhs) {
-                  return lhs.second.second < rhs.second.second;
-              });
-    // Iterate through the unordered_map and print job entries
+    // sort the map into a vector
+    vector<pair<int, pair<string, int>>> sortedJobs(jobMap.begin(),
+                                                    jobMap.end());
+    sort(sortedJobs.begin(), sortedJobs.end(),
+         [](const auto &lhs, const auto &rhs) {
+           return lhs.second.second < rhs.second.second;
+         });
+    // Iterate through the unordered_map and print job entries, from smallest to
+    // largest job number
     for (const auto &entry : sortedJobs) {
-      cout << "[" << entry.second.second << "]    "
-           << "running"
-           << "\t\t" << entry.second.first << endl;
+      cout << "[" << entry.second.second << "]"
+           << "\t" << entry.second.first << endl;
     }
   }
 }
@@ -261,7 +272,7 @@ void Shell::changeDirectory(vector<string> &command) {
         perror("HShell");
       }
     } else {
-      cerr << "Error: HOME environment variable not set." << std::endl;
+      cerr << "Error: HOME environment variable not set." << endl;
     }
   } else if (command.size() >
              1) { // otherwise, cd has an argument (besides tilda)
@@ -273,19 +284,24 @@ void Shell::changeDirectory(vector<string> &command) {
   }
 }
 
-string regenerateCommand(vector<string> &command) {
+// regenerate command string from tokens
+string Shell::regenerateCommand(vector<string> &command) {
   string separator = " ";
-  return accumulate(
-      next(command.begin()), command.end(), command.front(),
-      [separator](const std::string &acc, const std::string &str) {
-        return acc + separator + str;
-      });
+  return accumulate(next(command.begin()), command.end(), command.front(),
+                    [separator](const string &acc, const string &str) {
+                      return acc + separator + str;
+                    });
 }
 
 // fork and run the user's command; also takes file descriptors for terminal,
 // which will be changed if the command involved input/output redirection
 void Shell::generateChild(vector<string> &command, int originalStdin,
                           int originalStdout, bool inBackground) {
+  // initialize mask for blocking SIGCHLD
+  sigset_t mask;
+  sigemptyset(&mask);
+  sigaddset(&mask, SIGCHLD);
+
   vector<char *> args;
   populateArgVector(
       args, command); // execvp requires array of char pointers, not std::vector
@@ -297,12 +313,12 @@ void Shell::generateChild(vector<string> &command, int originalStdin,
     dup2(originalStdout, STDOUT_FILENO);
   } else if (pid == 0) {
     // Child process
-    if (inBackground) {
+    if (inBackground) { // if command to run in background
       // Close standard input and output
       close(STDIN_FILENO);
       close(STDOUT_FILENO);
 
-      // Create a new session and become the session leader
+      // Create a new session, so the process is disconnected from this terminal
       if (setsid() == -1) {
         perror("setsid");
         exit(EXIT_FAILURE);
@@ -317,18 +333,14 @@ void Shell::generateChild(vector<string> &command, int originalStdin,
     if (!inBackground) {
       waitpid(pid, nullptr, 0);
     } else {
-      sigset_t mask;
-      sigemptyset(&mask);
-      sigaddset(&mask, SIGCHLD);
-      // Block SIGCHLD
+      // Block SIGCHLD while starting a new job
       if (sigprocmask(SIG_BLOCK, &mask, nullptr) == -1) {
         perror("sigprocmask");
-        // Handle error
       }
       {
         lock_guard<mutex> lock(jobMapMutex);
+        // create an entry in the jobMap table with PID, jobNum, and command
         jobMap[pid] = {regenerateCommand(command), createJobNum()};
-        // make a line here to provide a job number and PID
         cout << "[" << jobMap[pid].second << "] " << pid << endl;
       }
       if (sigprocmask(SIG_UNBLOCK, &mask, nullptr) == -1) {
@@ -363,7 +375,7 @@ int Shell::handleRedirection(vector<string> &command) {
     }
   }
 
-  // check if user requested for process to run in the background
+  // check if user requested for process to run in the background, and modify the command accordingly
   bool inBackground = false;
   if (command.size()) {
     if (command.back() == "&") {
