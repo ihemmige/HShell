@@ -121,7 +121,7 @@ vector<string> Shell::parseInput(string &input) {
 // execvp requires a C-style array of char pointers (C-style strings)
 // so convert vector of std::string to vector of C-style strings
 void Shell::populateArgVector(vector<char *> &args, vector<string> &command) {
-  for (const auto &token : command) {
+  for (const string &token : command) {
     args.push_back(const_cast<char *>(token.c_str()));
   }
   args.push_back(
@@ -246,8 +246,8 @@ void Shell::printJobs() {
   // Print table header
   lock_guard<mutex> lock(jobMapMutex);
   if (jobMap.size() > 0) {
-    // sort the map into a vector
-    vector<pair<int, pair<string, int>>> sortedJobs(jobMap.begin(),
+    // sort the map into a vector, based on the jobNum (second item in the value)
+    vector<pair<int, pair<string, int> > > sortedJobs(jobMap.begin(),
                                                     jobMap.end());
     sort(sortedJobs.begin(), sortedJobs.end(),
          [](const auto &lhs, const auto &rhs) {

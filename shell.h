@@ -49,8 +49,8 @@ private:
   /*
    * Functions for advanced functionality
    */
-  void addToHistory(string newCommand);
   int handleRedirection(vector<string> &command);
+  void addToHistory(string newCommand);
 
 public:
   Shell();
