@@ -8,7 +8,7 @@ volatile sig_atomic_t sig_flag = 0;
 // current command, jobs list, and mutex need to be accessed by signal handler
 // AND in shell member functions
 string command;
-unordered_map<int, pair<string, int> > jobMap;
+unordered_map<int, pair<string, int>> jobMap;
 mutex jobMapMutex;
 
 // variables for job number management
@@ -191,6 +191,7 @@ void Shell::shellLoop() {
       command.clear();
       historyIndex =
           this->commandHistory.size() - 1; // reset the history pointer
+      restoreHistory();
       if (sig_flag == 0)
         outputPrompt();
     } else if (ch == 127) { // Check for backspace key
@@ -198,8 +199,13 @@ void Shell::shellLoop() {
         // Remove the last character from the command
         cout << "\b \b"; // Move the cursor back and overwrite the character
                          // with a space
-        command.pop_back();
         cout.flush();
+        // store the original history command before it is modified
+        tempHistory(historyIndex, command);
+        command.pop_back();
+        if (historyIndex != this->commandHistory.size() - 1) {
+          this->commandHistory[historyIndex] = command;
+        }
       }
     } else if (ch == 9) {
       // TODO handle tab key
@@ -207,6 +213,9 @@ void Shell::shellLoop() {
       cout << ch;    // Print the character as it is typed
       cout.flush();  // Flush the output to make it visible immediately
       command += ch; // update the command
+      if (historyIndex != this->commandHistory.size() - 1) {
+        this->commandHistory[historyIndex] = command;
+      }
     }
   }
 }
@@ -246,8 +255,9 @@ void Shell::printJobs() {
   // Print table header
   lock_guard<mutex> lock(jobMapMutex);
   if (jobMap.size() > 0) {
-    // sort the map into a vector, based on the jobNum (second item in the value)
-    vector<pair<int, pair<string, int> > > sortedJobs(jobMap.begin(),
+    // sort the map into a vector, based on the jobNum (second item in the
+    // value)
+    vector<pair<int, pair<string, int>>> sortedJobs(jobMap.begin(),
                                                     jobMap.end());
     sort(sortedJobs.begin(), sortedJobs.end(),
          [](const auto &lhs, const auto &rhs) {
@@ -375,7 +385,8 @@ int Shell::handleRedirection(vector<string> &command) {
     }
   }
 
-  // check if user requested for process to run in the background, and modify the command accordingly
+  // check if user requested for process to run in the background, and modify
+  // the command accordingly
   bool inBackground = false;
   if (command.size()) {
     if (command.back() == "&") {
@@ -417,6 +428,23 @@ void Shell::addToHistory(string newCommand) {
   this->commandHistory.pop_back();            // pop off the "" command
   this->commandHistory.push_back(newCommand); // add the new command
   this->commandHistory.push_back("");         // add back the "" command
+}
+
+// when history commands are edited, restore them after a command is entered
+void Shell::restoreHistory() {
+  // restore history
+  for (auto pair : this->modifiedHistory) {
+    this->commandHistory[pair.first] = pair.second;
+  }
+  this->modifiedHistory.clear();
+}
+
+// when history commands are edited, want to store the original command stored in history, to restore later
+void Shell::tempHistory(int historyIndex, string command) {
+  if (!this->modifiedHistory.contains(historyIndex) &&
+      historyIndex != this->commandHistory.size() - 1) {
+    this->modifiedHistory[historyIndex] = command;
+  }
 }
 
 void printVector(vector<string> &vec) {

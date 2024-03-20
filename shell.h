@@ -25,6 +25,7 @@ using namespace std;
 class Shell {
 private:
   deque<string> commandHistory;
+  unordered_map<int, string> modifiedHistory;
   static void interruptSignal(int signum);
   static void childSignal(int signum);
   /*
@@ -51,6 +52,8 @@ private:
    */
   int handleRedirection(vector<string> &command);
   void addToHistory(string newCommand);
+  void restoreHistory();
+  void tempHistory(int historyIndex, string command);
 
 public:
   Shell();
