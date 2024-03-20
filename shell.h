@@ -63,7 +63,9 @@ public:
   void shellLoop();
 };
 
-// functions for handling background job numbers
+/*
+ * Functions for handling background job numbers
+ */
 int createJobNum();
 void returnJobNum(int num);
 
