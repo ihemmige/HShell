@@ -8,7 +8,7 @@ volatile sig_atomic_t sig_flag = 0;
 // current command, jobs list, and mutex need to be accessed by signal handler
 // AND in shell member functions
 string command;
-unordered_map<int, pair<string, int>> jobMap;
+unordered_map<int, pair<string, int> > jobMap;
 mutex jobMapMutex;
 
 // variables for job number management
@@ -203,7 +203,7 @@ void Shell::shellLoop() {
         // store the original history command before it is modified
         tempHistory(historyIndex, command);
         command.pop_back();
-        if (historyIndex != this->commandHistory.size() - 1) {
+        if (historyIndex != static_cast<int>(this->commandHistory.size()) - 1) {
           this->commandHistory[historyIndex] = command;
         }
       }
@@ -213,7 +213,7 @@ void Shell::shellLoop() {
       cout << ch;    // Print the character as it is typed
       cout.flush();  // Flush the output to make it visible immediately
       command += ch; // update the command
-      if (historyIndex != this->commandHistory.size() - 1) {
+      if (historyIndex != static_cast<int>(this->commandHistory.size()) - 1) {
         this->commandHistory[historyIndex] = command;
       }
     }
@@ -442,9 +442,10 @@ void Shell::restoreHistory() {
 // when history commands are edited, want to store the original command stored in history, to restore later
 void Shell::tempHistory(int historyIndex, string command) {
   if (!this->modifiedHistory.contains(historyIndex) &&
-      historyIndex != this->commandHistory.size() - 1) {
+      historyIndex != static_cast<int>(this->commandHistory.size()) - 1) {
     this->modifiedHistory[historyIndex] = command;
   }
+  
 }
 
 void printVector(vector<string> &vec) {
