@@ -51,6 +51,7 @@ private:
   /*
    * Functions for advanced functionality
    */
+  void addJob(int jobNum, vector<string> & command);
   int handleRedirection(vector<string> &command);
   void addToHistory(string newCommand);
   void printHistory();
@@ -61,6 +62,10 @@ public:
   Shell();
   void shellLoop();
 };
+
+// functions for handling background job numbers
+int createJobNum();
+void returnJobNum(int num);
 
 /*
  * Functions for testing and argument visibility

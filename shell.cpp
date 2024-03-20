@@ -15,31 +15,6 @@ mutex jobMapMutex;
 int smallest = 1;
 set<int> below;
 
-// generate the next smallest job number (positive integer)
-int createJobNum() {
-  if (below.size()) {
-    int temp = *below.begin();
-    if (temp < smallest) {
-      below.erase(temp);
-      return temp;
-    }
-  }
-  smallest++;
-  return smallest - 1;
-}
-
-// for when job completes, return that number to the pool
-void returnJobNum(int num) {
-  if (num >= smallest) {
-    return;
-  }
-  if (num + 1 == smallest) {
-    smallest -= 1;
-  } else {
-    below.insert(num);
-  }
-}
-
 Shell::Shell() {
   // initialize the command history with an empty command
   this->commandHistory.push_back("");
@@ -311,11 +286,6 @@ string Shell::regenerateCommand(vector<string> &command) {
 // which will be changed if the command involved input/output redirection
 void Shell::generateChild(vector<string> &command, int originalStdin,
                           int originalStdout, bool inBackground) {
-  // initialize mask for blocking SIGCHLD
-  sigset_t mask;
-  sigemptyset(&mask);
-  sigaddset(&mask, SIGCHLD);
-
   vector<char *> args;
   populateArgVector(
       args, command); // execvp requires array of char pointers, not std::vector
@@ -347,21 +317,7 @@ void Shell::generateChild(vector<string> &command, int originalStdin,
     if (!inBackground) {
       waitpid(pid, nullptr, 0);
     } else {
-      // Block SIGCHLD while starting a new job
-      if (sigprocmask(SIG_BLOCK, &mask, nullptr) == -1) {
-        perror("sigprocmask");
-      }
-      {
-        lock_guard<mutex> lock(jobMapMutex);
-        // create an entry in the jobMap table with PID, jobNum, and command
-        jobMap[pid] = {regenerateCommand(command), createJobNum()};
-        cout << "[" << jobMap[pid].second << "] " << pid << endl;
-      }
-      if (sigprocmask(SIG_UNBLOCK, &mask, nullptr) == -1) {
-        perror("sigprocmask");
-      }
-      // usleep(15000); // to ensure proper output formatting; allow execvp
-      // error to print before next prompt
+      addJob(pid, command);
     }
   }
 
@@ -369,6 +325,26 @@ void Shell::generateChild(vector<string> &command, int originalStdin,
   // close where the STDIN and STDOUT currently point, and point them to default
   dup2(originalStdin, STDIN_FILENO);
   dup2(originalStdout, STDOUT_FILENO);
+}
+
+void Shell::addJob(pid_t pid, vector<string> & command) {
+    // initialize mask for blocking SIGCHLD
+    sigset_t mask;
+    sigemptyset(&mask);
+    sigaddset(&mask, SIGCHLD);
+    // Block SIGCHLD while starting a new job
+    if (sigprocmask(SIG_BLOCK, &mask, nullptr) == -1) {
+      perror("sigprocmask");
+    }
+    {
+      lock_guard<mutex> lock(jobMapMutex);
+      // create an entry in the jobMap table with PID, jobNum, and command
+      jobMap[pid] = {regenerateCommand(command), createJobNum()};
+      cout << "[" << jobMap[pid].second << "] " << pid << endl;
+    }
+    if (sigprocmask(SIG_UNBLOCK, &mask, nullptr) == -1) {
+      perror("sigprocmask");
+    }
 }
 
 int Shell::handleRedirection(vector<string> &command) {
@@ -458,6 +434,31 @@ void Shell::tempHistory(int historyIndex, string command) {
   if (!this->modifiedHistory.contains(historyIndex) &&
       historyIndex != static_cast<int>(this->commandHistory.size()) - 1) {
     this->modifiedHistory[historyIndex] = command;
+  }
+}
+
+// generate the next smallest job number (positive integer)
+int createJobNum() {
+  if (below.size()) {
+    int temp = *below.begin();
+    if (temp < smallest) {
+      below.erase(temp);
+      return temp;
+    }
+  }
+  smallest++;
+  return smallest - 1;
+}
+
+// for when job completes, return that number to the pool
+void returnJobNum(int num) {
+  if (num >= smallest) {
+    return;
+  }
+  if (num + 1 == smallest) {
+    smallest -= 1;
+  } else {
+    below.insert(num);
   }
 }
 
