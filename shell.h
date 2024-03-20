@@ -19,6 +19,7 @@
 #include <termios.h>
 #include <unistd.h>
 #include <mutex>
+#include <algorithm>
 
 using namespace std;
 
@@ -52,6 +53,7 @@ private:
    */
   int handleRedirection(vector<string> &command);
   void addToHistory(string newCommand);
+  void printHistory();
   void restoreHistory();
   void tempHistory(int historyIndex, string command);
 

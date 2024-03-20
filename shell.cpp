@@ -8,7 +8,7 @@ volatile sig_atomic_t sig_flag = 0;
 // current command, jobs list, and mutex need to be accessed by signal handler
 // AND in shell member functions
 string command;
-unordered_map<int, pair<string, int> > jobMap;
+unordered_map<int, pair<string, int>> jobMap;
 mutex jobMapMutex;
 
 // variables for job number management
@@ -184,6 +184,7 @@ void Shell::shellLoop() {
       cout << endl;
       vector<string> vals = parseInput(command);
       sig_flag = 0; // reset signal flag
+      restoreHistory();
       executeCommand(vals);
       if (command.size()) {
         addToHistory(command); // if the command wasn't empty, add it to history
@@ -191,7 +192,6 @@ void Shell::shellLoop() {
       command.clear();
       historyIndex =
           this->commandHistory.size() - 1; // reset the history pointer
-      restoreHistory();
       if (sig_flag == 0)
         outputPrompt();
     } else if (ch == 127) { // Check for backspace key
@@ -245,6 +245,10 @@ int Shell::handleBuiltins(vector<string> &command) {
   }
   if (command[0] == "jobs") {
     printJobs();
+    return 0;
+  }
+  if (command[0] == "history") {
+    printHistory();
     return 0;
   }
   return 1;
@@ -430,6 +434,15 @@ void Shell::addToHistory(string newCommand) {
   this->commandHistory.push_back("");         // add back the "" command
 }
 
+void Shell::printHistory() {
+  int const MAX_COMMANDS = 15; // only print the last 15 commands
+  for (int i = max(0, static_cast<int>(this->commandHistory.size()) -
+                          MAX_COMMANDS - 1);
+       i < static_cast<int>(this->commandHistory.size()) - 1; i++) {
+    cout << i + 1 << " " << this->commandHistory[i] << endl;
+  }
+}
+
 // when history commands are edited, restore them after a command is entered
 void Shell::restoreHistory() {
   // restore history
@@ -439,13 +452,13 @@ void Shell::restoreHistory() {
   this->modifiedHistory.clear();
 }
 
-// when history commands are edited, want to store the original command stored in history, to restore later
+// when history commands are edited, want to store the original command stored
+// in history, to restore later
 void Shell::tempHistory(int historyIndex, string command) {
   if (!this->modifiedHistory.contains(historyIndex) &&
       historyIndex != static_cast<int>(this->commandHistory.size()) - 1) {
     this->modifiedHistory[historyIndex] = command;
   }
-  
 }
 
 void printVector(vector<string> &vec) {
