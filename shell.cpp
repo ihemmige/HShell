@@ -438,7 +438,7 @@ void Shell::tempHistory(int historyIndex, string command) {
 }
 
 // generate the next smallest job number (positive integer)
-int createJobNum() {
+int Shell::createJobNum() {
   if (below.size()) {
     int temp = *below.begin();
     if (temp < smallest) {
@@ -451,7 +451,7 @@ int createJobNum() {
 }
 
 // for when job completes, return that number to the pool
-void returnJobNum(int num) {
+void Shell::returnJobNum(int num) {
   if (num >= smallest) {
     return;
   }

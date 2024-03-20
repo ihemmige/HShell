@@ -1,15 +1,15 @@
 #ifndef SHELL_H
 #define SHELL_H
 
+#include <algorithm>
+#include <csignal>
+#include <deque>
+#include <fcntl.h>
 #include <filesystem>
 #include <iostream>
-#include <deque>
-#include <unordered_map>
-#include <set>
-#include <vector>
-#include <csignal>
-#include <fcntl.h>
+#include <mutex>
 #include <numeric>
+#include <set>
 #include <sstream>
 #include <stdio.h>
 #include <stdlib.h>
@@ -18,8 +18,8 @@
 #include <sys/wait.h>
 #include <termios.h>
 #include <unistd.h>
-#include <mutex>
-#include <algorithm>
+#include <unordered_map>
+#include <vector>
 
 using namespace std;
 
@@ -51,23 +51,23 @@ private:
   /*
    * Functions for advanced functionality
    */
-  void addJob(int jobNum, vector<string> & command);
+  void addJob(int jobNum, vector<string> &command);
   int handleRedirection(vector<string> &command);
   void addToHistory(string newCommand);
   void printHistory();
   void restoreHistory();
   void tempHistory(int historyIndex, string command);
 
+  /*
+   * Functions for handling background job numbers
+   */
+  static int createJobNum();
+  static void returnJobNum(int num);
+
 public:
   Shell();
   void shellLoop();
 };
-
-/*
- * Functions for handling background job numbers
- */
-int createJobNum();
-void returnJobNum(int num);
 
 /*
  * Functions for testing and argument visibility
