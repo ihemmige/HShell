@@ -1,19 +1,19 @@
 #include "shell.h"
-const string FAILED_JOB = "exit 1";
-const string SUCCESS_JOB = "done";
+const std::string FAILED_JOB = "exit 1";
+const std::string SUCCESS_JOB = "done";
 
 // flag to set when SIGINT is received
 volatile sig_atomic_t sig_flag = 0;
 
 // current command, jobs list, and mutex need to be accessed by signal handler
 // AND in shell member functions
-string command;
-unordered_map<int, pair<string, int>> jobMap;
-mutex jobMapMutex;
+std::string command;
+std::unordered_map<int, std::pair<std::string, int>> jobMap;
+std::mutex jobMapMutex;
 
 // variables for job number management
 int smallest = 1;
-set<int> below;
+std::set<int> below;
 
 Shell::Shell() {
   // initialize the command history with an empty command
@@ -22,7 +22,7 @@ Shell::Shell() {
 
 // signal handlers for SIGINT and SIGCHLD
 void Shell::interruptSignal(int /*signum */) {
-  cout << endl;
+  std::cout << std::endl;
   sig_flag = 1;
   command.erase();
   outputPrompt();
@@ -32,16 +32,16 @@ void Shell::childSignal(int /* signum */) {
   int status;
   // wait for the child process that just exited
   pid_t pid = waitpid(-1, &status, WNOHANG);
-  lock_guard<mutex> lock(jobMapMutex);
+  std::lock_guard<std::mutex> lock(jobMapMutex);
   // if the job is a background process
   if (pid > 0 && jobMap.contains(pid)) {
     int exit_code = WEXITSTATUS(status);
-    string exit_message = ((exit_code == 0) ? SUCCESS_JOB : FAILED_JOB);
-    string command = jobMap[pid].first;
+    std::string exit_message = ((exit_code == 0) ? SUCCESS_JOB : FAILED_JOB);
+    std::string command = jobMap[pid].first;
     int jobNum = jobMap[pid].second;
     // output an update regarding the process that just completed
-    cout << endl
-         << "[" << jobNum << "]\t" << exit_message << "\t" << command << endl;
+    std::cout << std::endl
+         << "[" << jobNum << "]\t" << exit_message << "\t" << command << std::endl;
     jobMap.erase(pid);    // remove the job
     returnJobNum(jobNum); // return the job number
     outputPrompt();
@@ -50,8 +50,8 @@ void Shell::childSignal(int /* signum */) {
 }
 
 void Shell::outputPrompt() {
-  string curDirectory = filesystem::current_path().filename().string();
-  cout << "HShell " << curDirectory << " <> " << command << flush;
+  std::string curDirectory = std::filesystem::current_path().filename().string();
+  std::cout << "HShell " << curDirectory << " <> " << command << std::flush;
 }
 
 // Function to get a single character from the terminal without Enter key press
@@ -83,10 +83,10 @@ char Shell::getch() {
 }
 
 // Convert a continuous string into vector of strings
-vector<string> Shell::parseInput(string &input) {
-  vector<string> tokens;
-  stringstream iss(input);
-  string token;
+std::vector<std::string> Shell::parseInput(std::string &input) {
+  std::vector<std::string> tokens;
+  std::stringstream iss(input);
+  std::string token;
   while (iss >> token) {
     tokens.push_back(token);
   }
@@ -95,8 +95,8 @@ vector<string> Shell::parseInput(string &input) {
 
 // execvp requires a C-style array of char pointers (C-style strings)
 // so convert vector of std::string to vector of C-style strings
-void Shell::populateArgVector(vector<char *> &args, vector<string> &command) {
-  for (const string &token : command) {
+void Shell::populateArgVector(std::vector<char *> &args, std::vector<std::string> &command) {
+  for (const std::string &token : command) {
     args.push_back(const_cast<char *>(token.c_str()));
   }
   args.push_back(
@@ -114,7 +114,7 @@ void Shell::shellLoop() {
 
     // handle Ctrl + D (EOF)
     if (ch == 4) {
-      vector<string> temp = {"exit"};
+      std::vector<std::string> temp = {"exit"};
       handleBuiltins(temp);
     }
 
@@ -129,11 +129,11 @@ void Shell::shellLoop() {
             // need to remove the existing command from terminal
             int curCommandSize = command.size();
             for (int i = 0; i < curCommandSize; i++) {
-              cout << "\b \b";
+              std::cout << "\b \b";
             }
             // access the history command and display
             command = this->commandHistory[historyIndex];
-            cout << command;
+            std::cout << command;
           }
         } else if (ch == 'B') { // down arrow
           // if there is a subsequent command
@@ -143,11 +143,11 @@ void Shell::shellLoop() {
             // need to remove the existing command from terminal
             int curCommandSize = command.size();
             for (int i = 0; i < curCommandSize; i++) {
-              cout << "\b \b";
+              std::cout << "\b \b";
             }
             // access the history command and display
             command = this->commandHistory[historyIndex];
-            cout << command;
+            std::cout << command;
           }
         } else if (ch == 'C') {
           // TODO handle right arrow
@@ -156,8 +156,8 @@ void Shell::shellLoop() {
         }
       }
     } else if (ch == 10) { // Check for Enter key --> user entered a command
-      cout << endl;
-      vector<string> vals = parseInput(command);
+      std::cout << std::endl;
+      std::vector<std::string> vals = parseInput(command);
       sig_flag = 0; // reset signal flag
       restoreHistory();
       executeCommand(vals);
@@ -172,9 +172,9 @@ void Shell::shellLoop() {
     } else if (ch == 127) { // Check for backspace key
       if (!command.empty()) {
         // Remove the last character from the command
-        cout << "\b \b"; // Move the cursor back and overwrite the character
+        std::cout << "\b \b"; // Move the cursor back and overwrite the character
                          // with a space
-        cout.flush();
+        std::cout.flush();
         // store the original history command before it is modified
         tempHistory(historyIndex, command);
         command.pop_back();
@@ -185,8 +185,8 @@ void Shell::shellLoop() {
     } else if (ch == 9) {
       // TODO handle tab key
     } else {
-      cout << ch;    // Print the character as it is typed
-      cout.flush();  // Flush the output to make it visible immediately
+      std::cout << ch;    // Print the character as it is typed
+      std::cout.flush();  // Flush the output to make it visible immediately
       command += ch; // update the command
       if (historyIndex != static_cast<int>(this->commandHistory.size()) - 1) {
         this->commandHistory[historyIndex] = command;
@@ -195,7 +195,7 @@ void Shell::shellLoop() {
   }
 }
 
-void Shell::executeCommand(vector<string> &command) {
+void Shell::executeCommand(std::vector<std::string> &command) {
   if (command.empty())
     return;
   // only if command is not a built-in, then handle with fork, execvp etc.
@@ -205,17 +205,17 @@ void Shell::executeCommand(vector<string> &command) {
 }
 
 // catch functions that can be handled without a child process
-int Shell::handleBuiltins(vector<string> &command) {
+int Shell::handleBuiltins(std::vector<std::string> &command) {
   if (command[0] == "cd") {
     changeDirectory(command);
     return 0;
   }
   if (command[0] == "pwd") {
-    cout << filesystem::current_path().string() << endl;
+    std::cout << std::filesystem::current_path().string() << std::endl;
     return 0;
   }
   if (command[0] == "exit") {
-    cout << "Exiting shell. Goodbye." << endl;
+    std::cout << "Exiting shell. Goodbye." << std::endl;
     exit(EXIT_SUCCESS);
   }
   if (command[0] == "jobs") {
@@ -232,27 +232,27 @@ int Shell::handleBuiltins(vector<string> &command) {
 // for the 'jobs' command
 void Shell::printJobs() {
   // Print table header
-  lock_guard<mutex> lock(jobMapMutex);
+  std::lock_guard<std::mutex> lock(jobMapMutex);
   if (jobMap.size() > 0) {
     // sort the map into a vector, based on the jobNum (second item in the
     // value)
-    vector<pair<int, pair<string, int>>> sortedJobs(jobMap.begin(),
+    std::vector<std::pair<int, std::pair<std::string, int>>> sortedJobs(jobMap.begin(),
                                                     jobMap.end());
-    sort(sortedJobs.begin(), sortedJobs.end(),
+    std::sort(sortedJobs.begin(), sortedJobs.end(),
          [](const auto &lhs, const auto &rhs) {
            return lhs.second.second < rhs.second.second;
          });
     // Iterate through the unordered_map and print job entries, from smallest to
     // largest job number
     for (const auto &entry : sortedJobs) {
-      cout << "[" << entry.second.second << "]"
-           << "\t" << entry.second.first << endl;
+      std::cout << "[" << entry.second.second << "]"
+           << "\t" << entry.second.first << std::endl;
     }
   }
 }
 
 // handle cd
-void Shell::changeDirectory(vector<string> &command) {
+void Shell::changeDirectory(std::vector<std::string> &command) {
   // execute cd with no arguments, or with tilda
   if (command.size() == 1 || command[1] == "~") {
     const char *home_directory = getenv("HOME");
@@ -261,7 +261,7 @@ void Shell::changeDirectory(vector<string> &command) {
         perror("HShell");
       }
     } else {
-      cerr << "Error: HOME environment variable not set." << endl;
+      std::cerr << "Error: HOME environment variable not set." << std::endl;
     }
   } else if (command.size() >
              1) { // otherwise, cd has an argument (besides tilda)
@@ -269,24 +269,24 @@ void Shell::changeDirectory(vector<string> &command) {
       perror("HShell");
     }
   } else {
-    cerr << "Usage: cd <directory>" << endl;
+    std::cerr << "Usage: cd <directory>" << std::endl;
   }
 }
 
 // regenerate command string from tokens
-string Shell::regenerateCommand(vector<string> &command) {
-  string separator = " ";
+std::string Shell::regenerateCommand(std::vector<std::string> &command) {
+  std::string separator = " ";
   return accumulate(next(command.begin()), command.end(), command.front(),
-                    [separator](const string &acc, const string &str) {
+                    [separator](const std::string &acc, const std::string &str) {
                       return acc + separator + str;
                     });
 }
 
 // fork and run the user's command; also takes file descriptors for terminal,
 // which will be changed if the command involved input/output redirection
-void Shell::generateChild(vector<string> &command, int originalStdin,
+void Shell::generateChild(std::vector<std::string> &command, int originalStdin,
                           int originalStdout, bool inBackground) {
-  vector<char *> args;
+  std::vector<char *> args;
   populateArgVector(
       args, command); // execvp requires array of char pointers, not std::vector
   pid_t pid = fork();
@@ -327,7 +327,7 @@ void Shell::generateChild(vector<string> &command, int originalStdin,
   dup2(originalStdout, STDOUT_FILENO);
 }
 
-void Shell::addJob(pid_t pid, vector<string> & command) {
+void Shell::addJob(pid_t pid, std::vector<std::string> & command) {
     // initialize mask for blocking SIGCHLD
     sigset_t mask;
     sigemptyset(&mask);
@@ -337,19 +337,19 @@ void Shell::addJob(pid_t pid, vector<string> & command) {
       perror("sigprocmask");
     }
     {
-      lock_guard<mutex> lock(jobMapMutex);
+      std::lock_guard<std::mutex> lock(jobMapMutex);
       // create an entry in the jobMap table with PID, jobNum, and command
       jobMap[pid] = {regenerateCommand(command), createJobNum()};
-      cout << "[" << jobMap[pid].second << "] " << pid << endl;
+      std::cout << "[" << jobMap[pid].second << "] " << pid << std::endl;
     }
     if (sigprocmask(SIG_UNBLOCK, &mask, nullptr) == -1) {
       perror("sigprocmask");
     }
 }
 
-int Shell::handleRedirection(vector<string> &command) {
-  string inputFile;
-  string outputFile;
+int Shell::handleRedirection(std::vector<std::string> &command) {
+  std::string inputFile;
+  std::string outputFile;
   size_t ptr = 0;
   // detect the ">" operator for output redirection
   // if multiple such operators are found, the file pointed to by the last one
@@ -398,7 +398,7 @@ int Shell::handleRedirection(vector<string> &command) {
   return 0;
 }
 
-void Shell::addToHistory(string newCommand) {
+void Shell::addToHistory(std::string newCommand) {
   const int MAXSIZE =
       51; // small number used for testing, but can increase if desired
   // remove the command used earliest if at maximum
@@ -412,10 +412,10 @@ void Shell::addToHistory(string newCommand) {
 
 void Shell::printHistory() {
   int const MAX_COMMANDS = 15; // only print the last 15 commands
-  for (int i = max(0, static_cast<int>(this->commandHistory.size()) -
+  for (int i = std::max(0, static_cast<int>(this->commandHistory.size()) -
                           MAX_COMMANDS - 1);
        i < static_cast<int>(this->commandHistory.size()) - 1; i++) {
-    cout << i + 1 << " " << this->commandHistory[i] << endl;
+    std::cout << i + 1 << " " << this->commandHistory[i] << std::endl;
   }
 }
 
@@ -430,7 +430,7 @@ void Shell::restoreHistory() {
 
 // when history commands are edited, want to store the original command stored
 // in history, to restore later
-void Shell::tempHistory(int historyIndex, string command) {
+void Shell::tempHistory(int historyIndex, std::string command) {
   if (!this->modifiedHistory.contains(historyIndex) &&
       historyIndex != static_cast<int>(this->commandHistory.size()) - 1) {
     this->modifiedHistory[historyIndex] = command;
@@ -462,23 +462,23 @@ void Shell::returnJobNum(int num) {
   }
 }
 
-void printVector(vector<string> &vec) {
-  for (string v : vec) {
-    cout << v << " ";
+void printVector(std::vector<std::string> &vec) {
+  for (std::string v : vec) {
+    std::cout << v << " ";
   }
-  cout << endl;
+  std::cout << std::endl;
 }
 
-void printDeque(deque<string> &d) {
-  for (string v : d) {
-    cout << v << " ";
+void printDeque(std::deque<std::string> &d) {
+  for (std::string v : d) {
+    std::cout << v << " ";
   }
-  cout << endl;
+  std::cout << std::endl;
 }
 
-void printString(string s) {
+void printString(std::string s) {
   for (char c : s) {
-    cout << c << " ";
+    std::cout << c << " ";
   }
-  cout << endl;
+  std::cout << std::endl;
 }

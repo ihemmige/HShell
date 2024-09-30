@@ -21,12 +21,10 @@
 #include <unordered_map>
 #include <vector>
 
-using namespace std;
-
 class Shell {
 private:
-  deque<string> commandHistory;
-  unordered_map<int, string> modifiedHistory;
+  std::deque<std::string> commandHistory;
+  std::unordered_map<int, std::string> modifiedHistory;
   static void interruptSignal(int signum);
   static void childSignal(int signum);
   /*
@@ -34,29 +32,29 @@ private:
    */
   static void outputPrompt();
   char getch();
-  vector<string> parseInput(string &input);
-  void populateArgVector(vector<char *> &args, vector<string> &command);
+  std::vector<std::string> parseInput(std::string &input);
+  void populateArgVector(std::vector<char *> &args, std::vector<std::string> &command);
 
   /*
    * Functions for triggering execution
    */
-  void executeCommand(vector<string> &command);
-  int handleBuiltins(vector<string> &command);
+  void executeCommand(std::vector<std::string> &command);
+  int handleBuiltins(std::vector<std::string> &command);
   void printJobs();
-  void changeDirectory(vector<string> &command);
-  string regenerateCommand(vector<string> &command);
-  void generateChild(vector<string> &command, int originalStdin,
+  void changeDirectory(std::vector<std::string> &command);
+  std::string regenerateCommand(std::vector<std::string> &command);
+  void generateChild(std::vector<std::string> &command, int originalStdin,
                      int originalStdout, bool inBackground);
 
   /*
    * Functions for advanced functionality
    */
-  void addJob(int jobNum, vector<string> &command);
-  int handleRedirection(vector<string> &command);
-  void addToHistory(string newCommand);
+  void addJob(pid_t jobNum, std::vector<std::string> &command);
+  int handleRedirection(std::vector<std::string> &command);
+  void addToHistory(std::string newCommand);
   void printHistory();
   void restoreHistory();
-  void tempHistory(int historyIndex, string command);
+  void tempHistory(int historyIndex, std::string command);
 
   /*
    * Functions for handling background job numbers
@@ -72,8 +70,8 @@ public:
 /*
  * Functions for testing and argument visibility
  */
-void printVector(vector<string> &vec);
-void printString(string s);
-void printDeque(deque<string> &d);
+void printVector(std::vector<std::string> &vec);
+void printString(std::string s);
+void printDeque(std::deque<std::string> &d);
 
 #endif
